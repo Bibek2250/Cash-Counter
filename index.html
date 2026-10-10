@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Cash Counter</title>
-  <meta name="description" content="Count Australian notes and coins and see the total instantly.">
+  <meta name="description" content="Count notes and coins in AUD, USD, EUR, JPY, NPR and INR and see the total instantly.">
 
   <!-- Installable app settings -->
   <link rel="manifest" href="manifest.json">
@@ -23,10 +23,36 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Cash Counter</h1>
+    <h1><span class="logo" aria-hidden="true">$</span>Cash Counter</h1>
+    <div class="tools">
+      <label class="pill currency-pick" for="currency">
+        Currency
+        <select id="currency">
+          <option value="AUD">AUD · Australian dollar</option>
+          <option value="USD">USD · US dollar</option>
+          <option value="EUR">EUR · Euro</option>
+          <option value="JPY">JPY · Japanese yen</option>
+          <option value="NPR">NPR · Nepalese rupee</option>
+          <option value="INR">INR · Indian rupee</option>
+        </select>
+      </label>
+      <button class="pill" id="readBtn" type="button">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+        Read total
+      </button>
+      <button class="pill mic" id="micBtn" type="button" aria-pressed="false">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9h-2z"/></svg>
+        Voice commands
+      </button>
+      <button class="pill motion-btn" id="motionBtn" type="button" aria-pressed="false">Reduce motion</button>
+    </div>
   </header>
 
-  <div class="total">
+  <!-- What voice commands heard and did, shown on screen as well as spoken -->
+  <p class="voice-status" id="voiceStatus" hidden></p>
+
+  <main>
+  <div class="total" role="region" aria-label="Total">
     <div class="toprow">
       <div>
         <div class="label">Total</div>
@@ -41,25 +67,42 @@
     <button class="btn" id="clearBtn" type="button">Clear all</button>
   </div>
 
+  <!-- Slim total bar shown at the top once the panel above scrolls away.
+       The numbers are hidden from screen readers (they hear changes through #announce). -->
+  <div class="mini-total" id="miniTotal">
+    <div class="mini-info" aria-hidden="true">
+      <span class="label">Total</span>
+      <span class="mini-amount" id="miniGrand">$0.00</span>
+      <span class="mini-sub">Notes <b id="miniNotes">$0.00</b> · Coins <b id="miniCoins">$0.00</b></span>
+    </div>
+    <button class="btn mini-clear" id="miniClearBtn" type="button">Clear all</button>
+  </div>
+
+  <!-- Sits right after "Clear all" so keyboard users reach Undo with one Tab -->
+  <div class="toast" id="toast" hidden>
+    <span>Count cleared</span>
+    <button class="toast-btn" id="undoBtn" type="button">Undo</button>
+  </div>
+
   <div class="ledgers">
-    <section>
-      <h2>Notes <span class="st" id="notesSub2">$0.00</span></h2>
+    <section aria-labelledby="notesHead">
+      <h2 id="notesHead">Notes <span class="st" id="notesSub2">$0.00</span></h2>
       <div class="ledger" id="notes"></div>
     </section>
-    <section>
-      <h2>Coins <span class="st" id="coinsSub2">$0.00</span></h2>
+    <section aria-labelledby="coinsHead">
+      <h2 id="coinsHead">Coins <span class="st" id="coinsSub2">$0.00</span></h2>
       <div class="ledger" id="coins"></div>
     </section>
   </div>
+
+  <p class="tips" id="tips">Tap a number to type it in. With a keyboard, use the <kbd>↑</kbd> and <kbd>↓</kbd> arrow keys to change a count, and hold <kbd>Shift</kbd> to add or remove 5 notes or 10 coins at a time. Press <strong>Voice commands</strong> and say things like “add 3 fifty dollar notes”, “remove one 500 rupee note”, “switch to euros”, “what's the total” or “help”. Each currency keeps its own count.</p>
+  </main>
 </div>
 
 <div class="sr-only" id="announce" aria-live="polite" aria-atomic="true"></div>
-<div class="toast" id="toast" role="status" hidden>
-  <span>Count cleared</span>
-  <button class="toast-btn" id="undoBtn" type="button">Undo</button>
-</div>
 
 <script src="script.js"></script>
+<script src="voice.js"></script>
 <script>
   // Register the service worker so the app can be installed and used offline
   if ("serviceWorker" in navigator) {

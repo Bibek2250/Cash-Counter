@@ -4,18 +4,26 @@
   --secondary:    #FF7A45; /* warm coral */
   --highlight:    #FFC145; /* gold */
   --on-secondary: #241b33; /* text on coral */
+  --secondary-edge: #c2521f; /* 3D "underside" of coral buttons */
 
   /* Surfaces and text (light mode) */
   --bg:          #FDF8F3; /* off-white page background */
-  --surface:     #ffffff; /* cards */
+  --surface:     rgba(255, 255, 255, .78); /* cards (slightly see-through) */
+  --surface-solid: #ffffff;
   --fg:          #241b33; /* main text */
   --muted:       #6b6178; /* secondary text */
   --line:        #ece3d9; /* borders and dividers */
+  --edge:        #ddd1c4; /* 3D underside of light buttons */
   --accent:      #4C3575; /* focus rings, hover states */
   --accent-soft: #efe9f6; /* row "share of total" fill */
+  --blob-opacity: .55;     /* animated background blobs */
+  --card-shadow:
+    0 1px 0 rgba(255, 255, 255, .8) inset,
+    0 2px 4px -2px rgba(36, 27, 51, .12),
+    0 18px 40px -24px rgba(36, 27, 51, .35);
 
   /* Total panel */
-  --total-bg: var(--primary);
+  --total-bg: linear-gradient(140deg, #6a4aa3 0%, #4C3575 45%, #2c1d48 100%);
   --total-fg: #FDF8F3;
 
   /* Denominations — match the real Australian money */
@@ -26,7 +34,6 @@
   --n5:     #a2508f;
   --gold:   #c99a2e; /* $1 and $2 coins */
   --silver: #9aa4a8; /* 5c to 50c coins */
-  --chip-ink-dark: #1d1a12; /* text on light chips */
 
   /* Fonts */
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
@@ -34,6 +41,7 @@
 
   /* Motion */
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
 /* Dark mode: only surfaces and text change; brand colours stay the same */
@@ -41,12 +49,19 @@
   :root {
     color-scheme: dark;
     --bg:          #17121f;
-    --surface:     #211a2c;
+    --surface:     rgba(33, 26, 44, .78);
+    --surface-solid: #211a2c;
     --fg:          #f3eef8;
     --muted:       #a99fb8;
     --line:        #352b44;
+    --edge:        #0e0a14;
     --accent:      #b9a3e0; /* lighter purple so it shows on dark */
     --accent-soft: #2e2442;
+    --blob-opacity: .35;
+    --card-shadow:
+      0 1px 0 rgba(255, 255, 255, .06) inset,
+      0 2px 4px -2px rgba(0, 0, 0, .5),
+      0 18px 40px -20px rgba(0, 0, 0, .8);
   }
 }
 
@@ -60,6 +75,7 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   /* Keep content clear of the iPhone notch, home bar and rounded corners */
   padding:
     env(safe-area-inset-top)
@@ -71,6 +87,39 @@ body {
   font-family: var(--display);
   font-size: 15px;
   line-height: 1.45;
+}
+
+/* Slowly drifting colour blobs behind everything */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: var(--blob-opacity);
+  pointer-events: none;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+
+body::before {
+  top: -25vmax;
+  left: -15vmax;
+  background: radial-gradient(circle, #8a6cc7, transparent 65%);
+}
+
+body::after {
+  right: -20vmax;
+  bottom: -25vmax;
+  background: radial-gradient(circle, var(--secondary), transparent 65%);
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes drift {
+  to { transform: translate(12vmax, 8vmax) scale(1.15); }
 }
 
 
@@ -86,12 +135,275 @@ body {
   padding-block: 20px 48px;
 }
 
+header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+/* <main> holds the panel, toast, ledgers and tips with the same spacing as .wrap */
+main {
+  display: grid;
+  gap: inherit;
+}
+
+/* Slim total bar that slides down from the top once the big panel has
+   scrolled away, so the total stays in sight without covering the rows */
+.mini-total {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding:
+    calc(8px + env(safe-area-inset-top))
+    max(calc(16px + env(safe-area-inset-right)), calc((100% - 1116px) / 2))
+    8px
+    max(calc(16px + env(safe-area-inset-left)), calc((100% - 1116px) / 2)); /* line up with the page on wide screens */
+  background: linear-gradient(140deg, #6a4aa3, #4C3575 50%, #2c1d48);
+  color: var(--total-fg);
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, .6);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-110%);
+  visibility: hidden;
+  transition: transform .3s var(--ease), visibility 0s .3s;
+}
+
+.mini-total.show {
+  transform: none;
+  visibility: visible;
+  transition: transform .3s var(--ease);
+}
+
+.mini-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  min-width: 0;
+}
+
+/* Smaller "Clear all" that fits the slim bar */
+.mini-total .mini-clear {
+  flex: none;
+  padding: 6px 14px;
+  font-size: .85rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .5),
+    0 3px 0 var(--secondary-edge);
+}
+
+.mini-total .mini-clear:hover {
+  transform: translateY(-1px);
+}
+
+.mini-total .mini-clear:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--secondary-edge);
+}
+
+.mini-total .mini-clear:focus-visible {
+  outline-color: var(--highlight);
+}
+
+.mini-total .label {
+  font-family: var(--display);
+}
+
+.mini-amount {
+  color: var(--highlight);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.mini-sub {
+  font-size: .8rem;
+  opacity: .9;
+}
+
+/* Narrow phones: just the total and the button, so the bar stays one line */
+@media (max-width: 420px) {
+  .mini-sub {
+    display: none;
+  }
+}
+
+/* Keyboard focus never lands underneath the slim bar */
+html {
+  scroll-padding-top: calc(64px + env(safe-area-inset-top));
+}
+
+/* Header buttons: Read total, Voice commands, Reduce motion */
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 14px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font: 600 .85rem var(--display);
+  cursor: pointer;
+}
+
+/* Currency picker: a pill with the dropdown inside */
+.currency-pick {
+  padding-right: 6px;
+  cursor: default;
+}
+
+.currency-pick select {
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--fg);
+  font: 600 .85rem var(--display);
+  cursor: pointer;
+}
+
+.currency-pick select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pill svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.pill:hover {
+  border-color: var(--accent);
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pill[hidden] {
+  display: none;
+}
+
+/* Microphone is on: red, with a pulsing ring */
+.mic.listening {
+  border-color: #c62828;
+  background: #c62828;
+  color: #fff;
+  animation: listen 1.4s ease-out infinite;
+}
+
+@keyframes listen {
+  from { box-shadow: 0 0 0 0 rgba(198, 40, 40, .5); }
+  to   { box-shadow: 0 0 0 12px rgba(198, 40, 40, 0); }
+}
+
+/* "Reduce motion" switch; aria-pressed="true" when it's on.
+   The little switch track is drawn before the text. */
+.motion-btn::before {
+  content: "";
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: radial-gradient(circle at 8px 50%, var(--muted) 5px, transparent 5.5px) var(--line);
+}
+
+.motion-btn[aria-pressed="true"]::before {
+  background: radial-gradient(circle at 20px 50%, var(--surface-solid) 5px, transparent 5.5px) var(--accent);
+}
+
+/* What the voice feature heard and replied, in writing */
+.voice-status {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: .95rem;
+}
+
+.voice-status[hidden] {
+  display: none;
+}
+
+.voice-status .heard {
+  display: block;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+/* Keyboard help under the ledgers */
+.tips {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 .35em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-solid);
+  color: var(--fg);
+  font: 600 .8em var(--mono);
+  text-align: center;
+}
+
 header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -.01em;
   text-wrap: balance;
+}
+
+/* Spinning gold coin next to the title */
+.logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .8), transparent 40%),
+    var(--highlight);
+  box-shadow:
+    inset 0 0 0 3px #e0a52c,
+    0 4px 10px -3px rgba(201, 154, 46, .7);
+  color: #7a5310;
+  font: 800 .8em var(--mono);
+  animation: spin 5s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: perspective(300px) rotateY(360deg); }
 }
 
 /* Holds the notes and coins sections (side by side on desktop) */
@@ -105,18 +417,74 @@ header h1 {
 /* 4. Total panel
    -------------------------------------------------------------------------- */
 
-/* Stays pinned to the top of the screen while scrolling */
+/* The big total panel scrolls with the page (the slim .mini-total takes over
+   once it's out of view). --rx/--ry tilt it in 3D as the mouse moves. */
 .total {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 5;
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 12px;
   padding: 18px 20px;
-  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 18px;
   background: var(--total-bg);
   color: var(--total-fg);
-  box-shadow: 0 10px 28px -18px rgba(0, 0, 0, .6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .25),
+    inset 0 -6px 18px -8px rgba(0, 0, 0, .45),
+    0 24px 50px -24px rgba(44, 29, 72, .85),
+    0 8px 18px -10px rgba(0, 0, 0, .35);
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform .5s var(--ease);
+}
+
+.total.tilting {
+  transition: transform .08s linear;
+}
+
+/* Glossy light that follows the mouse */
+.total::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--mx, 30%) var(--my, 0%),
+    rgba(255, 255, 255, .22),
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+/* Light sweep when the total changes */
+.total::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .18) 50%, transparent 65%);
+  background-size: 250% 100%;
+  background-position: 150% 0;
+  pointer-events: none;
+}
+
+.total.flash::after {
+  animation: sweep .8s var(--ease);
+}
+
+@keyframes sweep {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+
+/* Lift the contents off the panel for a layered 3D look */
+.total > * {
+  transform: translateZ(30px);
+}
+
+.total .bar {
+  transform: translateZ(18px);
 }
 
 /* Big total on the left, notes/coins subtotals on the right */
@@ -137,6 +505,11 @@ header h1 {
 
 .amount {
   color: var(--highlight);
+  background: linear-gradient(180deg, #ffe08a 0%, var(--highlight) 45%, #f39a2b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)) drop-shadow(0 0 18px rgba(255, 193, 69, .35));
   font-family: var(--mono);
   font-size: clamp(2rem, 7vw, 2.9rem);
   font-weight: 700;
@@ -146,11 +519,11 @@ header h1 {
 
 /* Small "bump" when the total changes */
 .amount.bump {
-  animation: bump .35s ease;
+  animation: bump .4s var(--spring);
 }
 
 @keyframes bump {
-  40% { transform: scale(1.035); }
+  40% { transform: scale(1.06) translateY(-2px); }
 }
 
 /* Notes / Coins subtotals */
@@ -171,11 +544,22 @@ header h1 {
 /* Coloured bar showing how much each denomination contributes.
    Each <i> segment's flex-grow is set from JavaScript. */
 .bar {
+  position: relative;
   display: flex;
-  height: 12px;
-  border-radius: 6px;
+  height: 14px;
+  border-radius: 7px;
   overflow: hidden;
-  background: rgba(255, 255, 255, .12);
+  background: rgba(0, 0, 0, .25);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .4), 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+/* Glossy tube highlight across the bar */
+.bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, .15));
+  pointer-events: none;
 }
 
 .bar i {
@@ -183,27 +567,41 @@ header h1 {
   flex: 0 0 0;
   min-width: 0;
   height: 100%;
-  transition: flex-grow .45s var(--ease);
+  transition: flex-grow .6s var(--spring);
 }
 
 
 /* 5. Buttons
    -------------------------------------------------------------------------- */
 
-/* "Clear all" */
+/* "Clear all" — a chunky button that presses down */
 .btn {
   justify-self: start;
-  padding: 8px 16px;
-  border: 1px solid var(--secondary);
-  border-radius: 8px;
-  background: var(--secondary);
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ff9466, var(--secondary));
   color: var(--on-secondary);
-  font: 600 .9rem var(--display);
+  font: 700 .9rem var(--display);
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .5),
+    0 4px 0 var(--secondary-edge),
+    0 8px 16px -6px rgba(0, 0, 0, .5);
+  transition: transform .12s var(--ease), box-shadow .12s var(--ease), filter .2s;
 }
 
 .btn:hover {
-  filter: brightness(1.12);
+  filter: brightness(1.08);
+  transform: translateZ(30px) translateY(-1px);
+}
+
+.btn:active {
+  transform: translateZ(30px) translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .4),
+    0 1px 0 var(--secondary-edge),
+    0 2px 6px -2px rgba(0, 0, 0, .5);
 }
 
 /* Keyboard focus ring for all controls */
@@ -244,27 +642,42 @@ section h2 .st {
   letter-spacing: 0;
 }
 
-/* The card that holds the rows */
+/* The card that holds the rows — frosted glass, floating off the page */
 .ledger {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--surface);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: var(--card-shadow);
 }
 
 /* One denomination: chip | counter controls | line total */
 .row {
   position: relative;
   display: grid;
-  grid-template-columns: 70px 1fr auto;
+  grid-template-columns: 92px 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-top: 1px solid var(--line);
+  transition: background-color .2s;
+  animation: rise .55s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
 }
 
 .row:first-child {
   border-top: 0;
+}
+
+.row:hover {
+  background-color: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+
+/* Rows slide up into place when the page opens */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
 }
 
 /* Background fill showing this row's share of the total.
@@ -275,8 +688,8 @@ section h2 .st {
   inset: 0 auto 0 0;
   z-index: 0;
   width: var(--share, 0%);
-  background: var(--accent-soft);
-  transition: width .45s var(--ease);
+  background: linear-gradient(90deg, var(--accent-soft), color-mix(in srgb, var(--accent-soft) 40%, transparent));
+  transition: width .6s var(--spring);
 }
 
 /* Keep row content above the fill */
@@ -300,50 +713,132 @@ section h2 .st {
 }
 
 
-/* 7. Denomination chips
+/* 7. Denomination pictures (drawn notes and coins)
+   --c is the colour, --w the real size in mm (so notes get longer as they go up
+   in value and coins match their real sizes); data-stack (0-4) grows the pile.
    -------------------------------------------------------------------------- */
 
-/* Notes: small rounded rectangle */
+.denom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+}
+
 .chip {
-  display: grid;
-  place-items: center;
+  --edge: color-mix(in srgb, var(--c) 60%, #000);
+  --pile: 0 0 transparent;
+  --note-scale: .55px;
+  --coin-scale: 1.5px;
+  position: relative;
+  display: block;
   flex: none;
-  width: 46px;
-  height: 28px;
-  border-radius: 5px;
-  color: #fff;
-  font: 700 .78rem var(--mono);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25);
+  width: calc(var(--w) * var(--note-scale));
+  height: calc(65 * var(--note-scale));
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow:
+    var(--pile),
+    0 4px 8px -3px rgba(0, 0, 0, .4);
+  transition: filter .3s, opacity .3s, box-shadow .3s var(--ease);
 }
 
-/* Coins: circle with dark text */
+.chip svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Shine that sweeps across a picture when its row is hovered */
+.chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform .7s var(--ease);
+  pointer-events: none;
+}
+
+.row:hover .chip::after {
+  transform: translateX(120%);
+}
+
+/* Nothing counted yet: slightly faded (the value stays readable) */
+.chip[data-stack="0"] {
+  opacity: .78;
+  filter: saturate(.55);
+}
+
+/* Notes pile up behind and to the right */
+.chip[data-stack="2"] { --pile: 3px -3px 0 -1px var(--edge); }
+.chip[data-stack="3"] { --pile: 3px -3px 0 -1px var(--edge), 6px -6px 0 -2px var(--edge); }
+.chip[data-stack="4"] { --pile: 3px -3px 0 -1px var(--edge), 6px -6px 0 -2px var(--edge), 9px -9px 0 -3px var(--edge); }
+
+/* Coins: true-to-size discs with a thick edge */
 .coin {
-  width: 34px;
-  height: 34px;
-  margin-inline: 6px;
+  width: calc(var(--w) * var(--coin-scale));
+  height: calc(var(--w) * var(--coin-scale));
   border-radius: 50%;
-  color: var(--chip-ink-dark);
-  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .12);
+  box-shadow:
+    0 2px 0 var(--edge),
+    var(--pile),
+    0 5px 8px -3px rgba(0, 0, 0, .45);
 }
 
-/* 50c coin has a scalloped (12-sided) shape */
+/* Coins stack downwards into a little tower */
+.coin[data-stack="2"] { --pile: 0 3px 0 var(--c), 0 4px 0 var(--edge); }
+.coin[data-stack="3"] { --pile: 0 3px 0 var(--c), 0 4px 0 var(--edge), 0 5px 0 var(--c), 0 6px 0 var(--edge); }
+.coin[data-stack="4"] { --pile: 0 3px 0 var(--c), 0 4px 0 var(--edge), 0 5px 0 var(--c), 0 6px 0 var(--edge), 0 7px 0 var(--c), 0 8px 0 var(--edge); }
+
+/* 50c coin has 12 sides; this rounds the shadow to roughly match */
 .coin.scallop {
   border-radius: 42%;
 }
 
-/* Light-coloured notes (the $50) need dark text */
-.chip.ink-dark {
-  color: var(--chip-ink-dark);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .12);
-}
-
-/* "Pop" when the count changes */
+/* Notes flip over and coins spin when the count changes */
 .chip.pop {
-  animation: pop .3s ease;
+  animation: flip-note .5s var(--spring);
 }
 
-@keyframes pop {
-  50% { transform: scale(1.18) rotate(-4deg); }
+.coin.pop {
+  animation: flip-coin .55s var(--ease);
+}
+
+@keyframes flip-note {
+  50% { transform: perspective(200px) rotateX(180deg) scale(1.15); }
+  to  { transform: perspective(200px) rotateX(360deg); }
+}
+
+@keyframes flip-coin {
+  to { transform: perspective(200px) rotateY(360deg); }
+}
+
+/* Copy of a chip that flies up into the total (created by JavaScript) */
+.flyer {
+  position: fixed;
+  z-index: 20;
+  margin: 0;
+  pointer-events: none;
+}
+
+/* "+$5.00" label that floats up from the line total */
+.float {
+  position: fixed;
+  z-index: 20;
+  color: var(--accent);
+  font: 700 .85rem var(--mono);
+  pointer-events: none;
+  animation: float-up .9s var(--ease) forwards;
+}
+
+.float.minus {
+  color: var(--secondary);
+}
+
+@keyframes float-up {
+  from { opacity: 1; transform: translate(-50%, 0) scale(.9); }
+  to   { opacity: 0; transform: translate(-50%, -34px) scale(1.15); }
 }
 
 
@@ -357,22 +852,37 @@ section h2 .st {
   gap: 6px;
 }
 
-/* − and + buttons */
+/* − and + buttons: raised keys that press down */
 .step {
   width: 34px;
   height: 34px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: 9px;
+  background: linear-gradient(180deg, var(--surface-solid), var(--bg));
   color: var(--fg);
   font: 600 1.1rem var(--mono);
   line-height: 1;
   cursor: pointer;
+  box-shadow: 0 3px 0 var(--edge), 0 5px 8px -4px rgba(0, 0, 0, .3);
+  transition: transform .1s var(--ease), box-shadow .1s var(--ease), color .2s, border-color .2s;
 }
 
 .step:hover {
   border-color: var(--accent);
   color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* "-" when the count is already 0 */
+.step[aria-disabled="true"] {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.step:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--edge), 0 1px 2px rgba(0, 0, 0, .2);
 }
 
 /* +5 / +10 bulk buttons */
@@ -385,24 +895,39 @@ section h2 .st {
   color: var(--muted);
   font: 600 .75rem var(--mono);
   cursor: pointer;
+  transition: transform .15s var(--spring), color .2s, border-color .2s, background-color .2s;
 }
 
 .quick:hover {
+  border-style: solid;
   border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent);
+  transform: translateY(-1px) scale(1.05);
 }
 
-/* Count box */
+.quick:active {
+  transform: scale(.95);
+}
+
+/* Count box: sunken into the card */
 input.qty {
   width: 70px;
   height: 34px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  border-radius: 9px;
+  background: var(--surface-solid);
   color: var(--fg);
   font: 600 1rem var(--mono); /* 16px+ stops iOS zooming in on focus */
   font-variant-numeric: tabular-nums;
   text-align: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .1);
+  transition: box-shadow .2s, border-color .2s;
+}
+
+input.qty:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .1), 0 0 0 4px var(--accent-soft);
 }
 
 
@@ -420,10 +945,15 @@ input.qty {
   gap: 16px;
   max-width: calc(100% - 32px);
   padding: 8px 8px 8px 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--fg);
   color: var(--bg);
-  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .5);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, .55);
+  animation: toast-in .4s var(--spring);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 20px) scale(.95); }
 }
 
 /* display:flex above would otherwise override the hidden attribute */
@@ -439,6 +969,13 @@ input.qty {
   color: var(--on-secondary);
   font: 600 .9rem var(--display);
   cursor: pointer;
+  box-shadow: 0 3px 0 var(--secondary-edge);
+  transition: transform .1s, box-shadow .1s;
+}
+
+.toast-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--secondary-edge);
 }
 
 .toast-btn:focus-visible {
@@ -482,7 +1019,7 @@ input.qty {
   .total {
     gap: 10px;
     padding: 14px 16px;
-    border-radius: 12px;
+    border-radius: 14px;
   }
 
   .amount {
@@ -499,16 +1036,22 @@ input.qty {
     padding: 10px;
   }
 
+  .mini-total .mini-clear {
+    width: auto;
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+
   .row {
     grid-template-columns: 1fr auto;
     grid-template-areas:
       "denom   line"
       "counter counter";
-    row-gap: 8px;
-    padding: 10px 12px;
+    row-gap: 10px;
+    padding: 12px;
   }
 
-  .row .denom   { grid-area: denom; }
+  .row .denom   { grid-area: denom; justify-content: flex-start; min-height: 0; }
   .row .line    { grid-area: line; }
   .row .counter { grid-area: counter; }
 
@@ -535,14 +1078,8 @@ input.qty {
   }
 
   .chip {
-    width: 40px;
-    height: 24px;
-    font-size: .72rem;
-  }
-
-  .coin {
-    width: 30px;
-    height: 30px;
+    --note-scale: .48px;
+    --coin-scale: 1.3px;
   }
 
   .quick {
@@ -599,6 +1136,16 @@ input.qty {
     grid-row: 1 / span 2;
     align-self: center;
   }
+
+  /* Cards lift slightly when the mouse is over them */
+  .ledger {
+    transition: transform .35s var(--ease), box-shadow .35s var(--ease);
+  }
+
+  .ledger:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow), 0 30px 50px -30px rgba(36, 27, 51, .45);
+  }
 }
 
 /* Large desktop (1400px+) */
@@ -612,12 +1159,6 @@ input.qty {
   }
 }
 
-/* Phones in landscape: don't let the sticky total take up the whole screen */
-@media (max-height: 500px) and (orientation: landscape) {
-  .total {
-    position: static;
-  }
-}
 
 /* Touch screens: tap targets at least 44px */
 @media (pointer: coarse) {
@@ -646,10 +1187,95 @@ input.qty {
 /* 12. Accessibility preferences
    -------------------------------------------------------------------------- */
 
-/* Turn off all animation for people who ask for less motion */
+/* Turn off all animation and 3D tilt for people who ask for less motion,
+   either in their device settings or with the "Reduce motion" switch */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  ::before,
+  ::after {
     animation: none !important;
     transition: none !important;
+  }
+
+  .total {
+    transform: none;
+  }
+}
+
+html.calm *,
+html.calm ::before,
+html.calm ::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html.calm .total {
+  transform: none;
+}
+
+/* Higher contrast when the device asks for it */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #3d3450;
+    --line:  #8a7f97;
+    --surface: #ffffff;
+  }
+
+  .ledger {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .chip[data-stack="0"] {
+    opacity: 1;
+    filter: none;
+  }
+
+  .quick {
+    border-style: solid;
+  }
+
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root {
+    --muted: #ddd5e8;
+    --line:  #8d80a3;
+    --surface: #211a2c;
+  }
+}
+
+/* Windows High Contrast and other forced-colour modes: the system picks the
+   colours, so keep text solid, give buttons visible borders and leave the
+   money pictures and contribution bar in their real colours. */
+@media (forced-colors: active) {
+  .amount {
+    background: none;
+    filter: none;
+    -webkit-text-fill-color: CanvasText;
+  }
+
+  .chip,
+  .bar,
+  .logo {
+    forced-color-adjust: none;
+  }
+
+  .btn,
+  .toast-btn,
+  .mic.listening,
+  .mini-total,
+  .total,
+  .toast {
+    border: 1px solid CanvasText;
+  }
+
+  body::before,
+  body::after {
+    display: none;
   }
 }

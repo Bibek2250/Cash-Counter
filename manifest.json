@@ -1,7 +1,7 @@
 {
-  "name": "AUD Cash Counter",
+  "name": "Cash Counter",
   "short_name": "Cash Counter",
-  "description": "Count Australian notes and coins and see the total instantly.",
+  "description": "Count notes and coins in AUD, USD, EUR, JPY, NPR and INR and see the total instantly.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

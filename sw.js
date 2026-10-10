@@ -1,11 +1,12 @@
 // Service worker: lets the app open and work with no internet connection.
 // Change the version number whenever you update the app, so devices pick up the new files.
-const CACHE = "cash-counter-v4";
+const CACHE = "cash-counter-v11";
 const FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./script.js",
+  "./voice.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
