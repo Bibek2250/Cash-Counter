@@ -1,0 +1,655 @@
+:root {
+  /* Brand palette */
+  --primary:      #4C3575; /* deep purple */
+  --secondary:    #FF7A45; /* warm coral */
+  --highlight:    #FFC145; /* gold */
+  --on-secondary: #241b33; /* text on coral */
+
+  /* Surfaces and text (light mode) */
+  --bg:          #FDF8F3; /* off-white page background */
+  --surface:     #ffffff; /* cards */
+  --fg:          #241b33; /* main text */
+  --muted:       #6b6178; /* secondary text */
+  --line:        #ece3d9; /* borders and dividers */
+  --accent:      #4C3575; /* focus rings, hover states */
+  --accent-soft: #efe9f6; /* row "share of total" fill */
+
+  /* Total panel */
+  --total-bg: var(--primary);
+  --total-fg: #FDF8F3;
+
+  /* Denominations — match the real Australian money */
+  --n100:   #2f8f4e;
+  --n50:    #d9a514;
+  --n20:    #d2502f;
+  --n10:    #2d6fc0;
+  --n5:     #a2508f;
+  --gold:   #c99a2e; /* $1 and $2 coins */
+  --silver: #9aa4a8; /* 5c to 50c coins */
+  --chip-ink-dark: #1d1a12; /* text on light chips */
+
+  /* Fonts */
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Motion */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Dark mode: only surfaces and text change; brand colours stay the same */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg:          #17121f;
+    --surface:     #211a2c;
+    --fg:          #f3eef8;
+    --muted:       #a99fb8;
+    --line:        #352b44;
+    --accent:      #b9a3e0; /* lighter purple so it shows on dark */
+    --accent-soft: #2e2442;
+  }
+}
+
+
+/* 2. Base
+   -------------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  /* Keep content clear of the iPhone notch, home bar and rounded corners */
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--display);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+
+/* 3. Page layout
+   -------------------------------------------------------------------------- */
+
+.wrap {
+  display: grid;
+  gap: 18px;
+  max-width: 780px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 20px 48px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+}
+
+/* Holds the notes and coins sections (side by side on desktop) */
+.ledgers {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+
+
+/* 4. Total panel
+   -------------------------------------------------------------------------- */
+
+/* Stays pinned to the top of the screen while scrolling */
+.total {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--total-bg);
+  color: var(--total-fg);
+  box-shadow: 0 10px 28px -18px rgba(0, 0, 0, .6);
+}
+
+/* Big total on the left, notes/coins subtotals on the right */
+.toprow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  opacity: .75;
+}
+
+.amount {
+  color: var(--highlight);
+  font-family: var(--mono);
+  font-size: clamp(2rem, 7vw, 2.9rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+/* Small "bump" when the total changes */
+.amount.bump {
+  animation: bump .35s ease;
+}
+
+@keyframes bump {
+  40% { transform: scale(1.035); }
+}
+
+/* Notes / Coins subtotals */
+.sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-family: var(--mono);
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+  opacity: .92;
+}
+
+.sub b {
+  font-weight: 600;
+}
+
+/* Coloured bar showing how much each denomination contributes.
+   Each <i> segment's flex-grow is set from JavaScript. */
+.bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .12);
+}
+
+.bar i {
+  display: block;
+  flex: 0 0 0;
+  min-width: 0;
+  height: 100%;
+  transition: flex-grow .45s var(--ease);
+}
+
+
+/* 5. Buttons
+   -------------------------------------------------------------------------- */
+
+/* "Clear all" */
+.btn {
+  justify-self: start;
+  padding: 8px 16px;
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font: 600 .9rem var(--display);
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+}
+
+/* Keyboard focus ring for all controls */
+.btn:focus-visible,
+.step:focus-visible,
+.quick:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* On the purple panel, use gold so the ring stays visible */
+.total .btn:focus-visible {
+  outline-color: var(--highlight);
+}
+
+
+/* 6. Ledgers and rows
+   -------------------------------------------------------------------------- */
+
+/* Section heading: "NOTES ........ $123.00" */
+section h2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+section h2 .st {
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: .9rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* The card that holds the rows */
+.ledger {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* One denomination: chip | counter controls | line total */
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+/* Background fill showing this row's share of the total.
+   --share is set from JavaScript (e.g. "25%"). */
+.row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: var(--share, 0%);
+  background: var(--accent-soft);
+  transition: width .45s var(--ease);
+}
+
+/* Keep row content above the fill */
+.row > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Line total, e.g. "$250.00" */
+.line {
+  min-width: 96px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.line.zero {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+
+/* 7. Denomination chips
+   -------------------------------------------------------------------------- */
+
+/* Notes: small rounded rectangle */
+.chip {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 28px;
+  border-radius: 5px;
+  color: #fff;
+  font: 700 .78rem var(--mono);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .25);
+}
+
+/* Coins: circle with dark text */
+.coin {
+  width: 34px;
+  height: 34px;
+  margin-inline: 6px;
+  border-radius: 50%;
+  color: var(--chip-ink-dark);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .12);
+}
+
+/* 50c coin has a scalloped (12-sided) shape */
+.coin.scallop {
+  border-radius: 42%;
+}
+
+/* Light-coloured notes (the $50) need dark text */
+.chip.ink-dark {
+  color: var(--chip-ink-dark);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .12);
+}
+
+/* "Pop" when the count changes */
+.chip.pop {
+  animation: pop .3s ease;
+}
+
+@keyframes pop {
+  50% { transform: scale(1.18) rotate(-4deg); }
+}
+
+
+/* 8. Counter controls
+   -------------------------------------------------------------------------- */
+
+.counter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* − and + buttons */
+.step {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 600 1.1rem var(--mono);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* +5 / +10 bulk buttons */
+.quick {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 .75rem var(--mono);
+  cursor: pointer;
+}
+
+.quick:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Count box */
+input.qty {
+  width: 70px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg);
+  font: 600 1rem var(--mono); /* 16px+ stops iOS zooming in on focus */
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+
+/* 9. Undo toast (shown after "Clear all")
+   -------------------------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 10;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100% - 32px);
+  padding: 8px 8px 8px 16px;
+  border-radius: 10px;
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .5);
+}
+
+/* display:flex above would otherwise override the hidden attribute */
+.toast[hidden] {
+  display: none;
+}
+
+.toast-btn {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--on-secondary);
+  font: 600 .9rem var(--display);
+  cursor: pointer;
+}
+
+.toast-btn:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
+
+
+/* 10. Utilities
+   -------------------------------------------------------------------------- */
+
+/* Hidden on screen but still read by screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* 11. Responsive layouts
+   Order matters: later rules win when several queries match.
+   -------------------------------------------------------------------------- */
+
+/* Mobile (up to 599px): chip and line total on top, controls full width below */
+@media (max-width: 599px) {
+  .wrap {
+    gap: 14px;
+    padding-block: 14px 32px;
+  }
+
+  header h1 {
+    font-size: 1.3rem;
+  }
+
+  .total {
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .amount {
+    font-size: clamp(1.8rem, 9vw, 2.3rem);
+  }
+
+  .sub {
+    gap: 4px 14px;
+    font-size: .8rem;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "denom   line"
+      "counter counter";
+    row-gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .row .denom   { grid-area: denom; }
+  .row .line    { grid-area: line; }
+  .row .counter { grid-area: counter; }
+
+  .counter {
+    flex-wrap: nowrap;
+  }
+
+  /* Count box stretches to fill the spare width */
+  .counter input.qty {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .line {
+    min-width: 0;
+  }
+}
+
+/* Very small phones (up to 360px) */
+@media (max-width: 360px) {
+  .wrap {
+    padding-inline: 12px;
+  }
+
+  .chip {
+    width: 40px;
+    height: 24px;
+    font-size: .72rem;
+  }
+
+  .coin {
+    width: 30px;
+    height: 30px;
+  }
+
+  .quick {
+    padding: 0 6px;
+  }
+}
+
+/* Tablet (600px – 899px) */
+@media (min-width: 600px) and (max-width: 899px) {
+  .wrap {
+    max-width: 720px;
+    padding-inline: 24px;
+    padding-block: 28px 48px;
+  }
+
+  .line {
+    min-width: 110px;
+  }
+}
+
+/* Laptop and desktop (900px+): notes and coins side by side */
+@media (min-width: 900px) {
+  .wrap {
+    gap: 22px;
+    max-width: 1180px;
+    padding-inline: 32px;
+    padding-block: 32px 56px;
+  }
+
+  header h1 {
+    font-size: 1.85rem;
+  }
+
+  .ledgers {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  /* Total and bar on the left, "Clear all" button on the right */
+  .total {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    column-gap: 28px;
+    padding: 22px 28px;
+  }
+
+  .total .toprow,
+  .total .bar {
+    grid-column: 1;
+  }
+
+  .total .btn {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+}
+
+/* Large desktop (1400px+) */
+@media (min-width: 1400px) {
+  body {
+    font-size: 16px;
+  }
+
+  .wrap {
+    max-width: 1320px;
+  }
+}
+
+/* Phones in landscape: don't let the sticky total take up the whole screen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .total {
+    position: static;
+  }
+}
+
+/* Touch screens: tap targets at least 44px */
+@media (pointer: coarse) {
+  .step {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+  }
+
+  input.qty {
+    height: 44px;
+    font-size: 1.05rem;
+  }
+
+  .quick {
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .toast-btn {
+    min-height: 44px;
+  }
+}
+
+
+/* 12. Accessibility preferences
+   -------------------------------------------------------------------------- */
+
+/* Turn off all animation for people who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

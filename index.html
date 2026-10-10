@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cash Counter</title>
+  <meta name="description" content="Count Australian notes and coins and see the total instantly.">
+
+  <!-- Installable app settings -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4C3575">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cash Counter">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600;700&display=swap" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Cash Counter</h1>
+  </header>
+
+  <div class="total">
+    <div class="toprow">
+      <div>
+        <div class="label">Total</div>
+        <div class="amount" id="grand">$0.00</div>
+      </div>
+      <div class="sub">
+        <span>Notes <b id="notesSub">$0.00</b></span>
+        <span>Coins <b id="coinsSub">$0.00</b></span>
+      </div>
+    </div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <button class="btn" id="clearBtn" type="button">Clear all</button>
+  </div>
+
+  <div class="ledgers">
+    <section>
+      <h2>Notes <span class="st" id="notesSub2">$0.00</span></h2>
+      <div class="ledger" id="notes"></div>
+    </section>
+    <section>
+      <h2>Coins <span class="st" id="coinsSub2">$0.00</span></h2>
+      <div class="ledger" id="coins"></div>
+    </section>
+  </div>
+</div>
+
+<div class="sr-only" id="announce" aria-live="polite" aria-atomic="true"></div>
+<div class="toast" id="toast" role="status" hidden>
+  <span>Count cleared</span>
+  <button class="toast-btn" id="undoBtn" type="button">Undo</button>
+</div>
+
+<script src="script.js"></script>
+<script>
+  // Register the service worker so the app can be installed and used offline
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+  }
+</script>
+</body>
+</html>
