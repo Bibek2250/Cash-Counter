@@ -9,10 +9,10 @@ import { coinArt, noteArt } from "./art.js";
 import {
   bulkStep, clampCount, hasAnyCounts, MAX_COUNT, migrateLegacyCounts, pileLevel, sanitizeCounts, totals,
 } from "./counts.js";
-import { CURRENCIES, getCurrency } from "./currencies.js";
+import { AUD } from "./currencies.js";
 import { h, restartAnimation } from "./dom.js";
 import { celebrate, initMotionSwitch, initTilt, isCalm } from "./effects.js";
-import { readJSON, readString, STORAGE_KEYS, writeJSON, writeString } from "./storage.js";
+import { readJSON, writeJSON } from "./storage.js";
 import { initVoice } from "./voice.js";
 
 const UNDO_TIMEOUT_MS = 10_000;
@@ -22,8 +22,6 @@ const MAX_DIGITS = String(MAX_COUNT).length;
 
 const byId = (id) => document.getElementById(id);
 const ui = {
-  logo: document.querySelector(".logo"),
-  currencySelect: byId("currency"),
   panel: document.querySelector(".total"),
   grand: byId("grand"),
   bar: byId("bar"),
@@ -43,7 +41,7 @@ const ui = {
 };
 
 const state = {
-  currency: getCurrency(readString(STORAGE_KEYS.currency)),
+  currency: AUD,
   counts: {},
   /** Counts from before "Clear all", while Undo is still on offer. */
   undoCounts: null,
@@ -106,10 +104,28 @@ function animateTotal(target, instant) {
 // ---------------------------------------------------------------------------
 // Building the rows for the current currency.
 
-function buildRow(item, index) {
-  const isCoin = item.kind === "coin";
+/** −, count box, + and the bulk button for one countable item. */
+function buildStepper(item, labelSuffix = "") {
   const bulk = bulkStep(item);
-  const art = isCoin ? coinArt(item, state.currency) : noteArt(item, state.currency);
+  const minus = h("button", { class: "step", type: "button", "aria-label": `Remove one ${item.name}`, dataset: { step: "-1" } }, "−");
+  const input = h("input", {
+    class: "qty", type: "text", inputmode: "numeric", pattern: "[0-9]*", maxlength: MAX_DIGITS,
+    autocomplete: "off", id: `q-${item.id}`, "aria-label": `Number of ${item.name}s${labelSuffix}`, "aria-describedby": "tips", value: "0",
+  });
+  const plus = h("button", { class: "step", type: "button", "aria-label": `Add one ${item.name}`, dataset: { step: "1" } }, "+");
+  // The name starts with the visible text so voice-control users can say "click plus 5".
+  const quick = h("button", { class: "quick", type: "button", "aria-label": `+${bulk} ${item.name}s`, dataset: { step: String(bulk) } }, `+${bulk}`);
+  return { minus, input, controls: [minus, input, plus, quick] };
+}
+
+/**
+ * One note or coin row. A coin row also holds a second counter for bank rolls of that coin,
+ * and its line total covers loose coins and rolls together.
+ * Returns the row's entry plus, for coins, an entry for the roll counter inside it.
+ */
+function buildRow(item, index) {
+  const art = item.kind === "coin" ? coinArt(item, state.currency) : noteArt(item, state.currency);
+  const roll = state.currency.rolls.find((r) => r.coinId === item.id);
 
   const chip = h("span", {
     class: ["chip", item.kind, item.sides && "scallop"].filter(Boolean).join(" "),
@@ -119,34 +135,38 @@ function buildRow(item, index) {
     style: { "--c": item.color, "--w": item.width },
   }, art);
 
-  const minus = h("button", { class: "step", type: "button", "aria-label": `Remove one ${item.name}`, dataset: { step: "-1" } }, "−");
-  const input = h("input", {
-    class: "qty", type: "text", inputmode: "numeric", pattern: "[0-9]*", maxlength: MAX_DIGITS,
-    autocomplete: "off", id: `q-${item.id}`, "aria-label": `Number of ${item.name}s`, "aria-describedby": "tips", value: "0",
-  });
-  const plus = h("button", { class: "step", type: "button", "aria-label": `Add one ${item.name}`, dataset: { step: "1" } }, "+");
-  // The name starts with the visible text so voice-control users can say "click plus 5".
-  const quick = h("button", { class: "quick", type: "button", "aria-label": `+${bulk} ${item.name}s`, dataset: { step: String(bulk) } }, `+${bulk}`);
+  const loose = buildStepper(item);
   const line = h("div", { class: "line zero", id: `t-${item.id}` });
-
+  // Coins with rolls label both counters the same width, so the two sets of controls line up.
+  const looseLabel = roll && h("span", { class: "counter-label", "aria-hidden": "true" }, "Coins");
   const row = h("div", { class: "row", dataset: { id: item.id }, style: { "--i": index } },
     h("div", { class: "denom" }, chip),
-    h("div", { class: "counter" }, minus, input, plus, quick),
+    h("div", { class: "counter" }, looseLabel, loose.controls),
     line,
   );
   const barSegment = h("i", { style: { background: item.color } });
-  return { item, row, chip, input, minus, line, barSegment };
+  const entry = { item, roll, row, chip, input: loose.input, minus: loose.minus, line, barSegment };
+  if (!roll) return [entry];
+
+  // Every roll is a whole-dollar amount, so drop the ".00": "$50", not "$50.00".
+  const rollValue = state.currency.format(roll.value).replace(/\.00$/, "");
+  const rolled = buildStepper(roll, `, ${rollValue} each (${roll.size} coins)`);
+  row.append(h("div", { class: "counter roll-counter", dataset: { id: roll.id } },
+    h("span", { class: "counter-label", "aria-hidden": "true", title: `${roll.size} coins` }, "Rolls ", h("small", {}, rollValue)),
+    rolled.controls,
+  ));
+  // The roll counter shares its coin's picture and line total for animations.
+  return [entry, { item: roll, inner: true, chip, input: rolled.input, minus: rolled.minus, line }];
 }
 
 function buildCurrencyView() {
   const { currency } = state;
-  const built = currency.all.map(buildRow);
+  const built = currency.denominations.flatMap(buildRow);
   rows = new Map(built.map((r) => [r.item.id, r]));
-  ui.notesList.replaceChildren(...built.filter((r) => r.item.kind === "note").map((r) => r.row));
-  ui.coinsList.replaceChildren(...built.filter((r) => r.item.kind === "coin").map((r) => r.row));
-  ui.bar.replaceChildren(...built.map((r) => r.barSegment));
-  ui.logo.textContent = currency.logo;
-  ui.currencySelect.value = currency.code;
+  const outer = built.filter((r) => !r.inner);
+  ui.notesList.replaceChildren(...outer.filter((r) => r.item.kind === "note").map((r) => r.row));
+  ui.coinsList.replaceChildren(...outer.filter((r) => r.item.kind === "coin").map((r) => r.row));
+  ui.bar.replaceChildren(...outer.map((r) => r.barSegment));
 }
 
 // ---------------------------------------------------------------------------
@@ -157,17 +177,21 @@ function render(previous, instant) {
   const sums = totals(counts, currency);
   const changed = [];
 
-  for (const { item, row, chip, input, minus, line, barSegment } of rows.values()) {
+  for (const { item, roll, inner, row, chip, input, minus, line, barSegment } of rows.values()) {
     const count = counts[item.id];
-    const lineTotal = count * item.value;
 
-    line.textContent = currency.format(lineTotal);
-    line.classList.toggle("zero", count === 0);
-    row.style.setProperty("--share", `${sums.total ? (lineTotal / sums.total) * 100 : 0}%`);
-    barSegment.style.flexGrow = String(lineTotal);
+    if (!inner) {
+      const rolls = roll ? counts[roll.id] : 0;
+      const lineTotal = count * item.value + rolls * (roll?.value ?? 0);
+      line.textContent = currency.format(lineTotal);
+      line.classList.toggle("zero", lineTotal === 0);
+      row.style.setProperty("--share", `${sums.total ? (lineTotal / sums.total) * 100 : 0}%`);
+      barSegment.style.flexGrow = String(lineTotal);
+      chip.dataset.stack = String(pileLevel(count + rolls * (roll?.size ?? 0)));
+    }
+
     // "−" stays focusable at zero (so keyboard focus isn't lost) but says it can't go lower.
     minus.setAttribute("aria-disabled", String(count === 0));
-    chip.dataset.stack = String(pileLevel(count));
 
     // Don't fight someone who is typing: leave a focused box alone if it already means this count.
     const typing = document.activeElement === input && clampCount(input.value) === count;
@@ -270,34 +294,21 @@ function undo() {
 }
 
 // ---------------------------------------------------------------------------
-// Currencies: each keeps its own saved counts.
+// Saved counts.
 
 function loadSavedCounts() {
-  const saved = migrateLegacyCounts(readJSON(state.currency.storageKey), state.currency.code);
-  state.counts = {};
-  totalAnimation.target = null; // force a redraw in the new currency's format
-  commitCounts(saved, { instant: true });
-}
-
-function switchCurrency(code) {
-  if (!Object.hasOwn(CURRENCIES, code)) return;
-  hideUndo();
-  state.currency = CURRENCIES[code];
-  writeString(STORAGE_KEYS.currency, code);
-  buildCurrencyView();
-  loadSavedCounts();
-  announce(`Now counting ${state.currency.name}s. Total ${state.currency.format(totals(state.counts, state.currency).total)}`);
+  commitCounts(migrateLegacyCounts(readJSON(state.currency.storageKey)), { instant: true });
 }
 
 // ---------------------------------------------------------------------------
 // Events.
 
+/** The item a control belongs to: a roll counter's own id, otherwise its row's. */
 function rowIdFor(element) {
-  return element.closest(".row")?.dataset.id;
+  return element.closest("[data-id]")?.dataset.id;
 }
 
 function wireEvents() {
-  ui.currencySelect.addEventListener("change", (event) => switchCurrency(event.target.value));
   ui.clearButton.addEventListener("click", () => clearAll(ui.clearButton));
   ui.miniClearButton.addEventListener("click", () => clearAll(ui.miniClearButton));
   ui.undoButton.addEventListener("click", undo);
@@ -399,7 +410,6 @@ initVoice(
     clearAll: () => clearAll(ui.clearButton),
     undo,
     canUndo: () => state.undoCounts !== null,
-    switchCurrency,
   },
   { mic: byId("micBtn"), read: byId("readBtn"), status: byId("voiceStatus") },
 );

@@ -1,7 +1,7 @@
 {
   "name": "cash-counter",
-  "version": "1.1.0",
-  "description": "Count notes and coins in AUD, USD, EUR, JPY, NPR and INR and see the total instantly.",
+  "version": "1.2.0",
+  "description": "Count Australian notes, coins and coin rolls and see the total instantly.",
   "private": true,
   "type": "module",
   "engines": {

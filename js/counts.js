@@ -26,11 +26,11 @@ export function sanitizeCounts(raw, currency) {
 }
 
 /**
- * Older versions saved Australian notes by dollar value ("n100" = $100). They are now keyed
+ * Older versions saved notes by dollar value ("n100" = $100). They are now keyed
  * by cents ("n10000"). Returns a converted copy; anything else is returned unchanged.
  */
-export function migrateLegacyCounts(raw, currencyCode) {
-  if (currencyCode !== "AUD" || raw === null || typeof raw !== "object") return raw;
+export function migrateLegacyCounts(raw) {
+  if (raw === null || typeof raw !== "object") return raw;
   if (!Object.hasOwn(raw, "n100") || Object.hasOwn(raw, "n10000")) return raw;
   const migrated = { ...raw };
   for (const dollars of [100, 50, 20, 10, 5]) {
@@ -40,12 +40,20 @@ export function migrateLegacyCounts(raw, currencyCode) {
   return migrated;
 }
 
-/** Sums notes, coins and the overall total, in the currency's smallest unit. */
+/**
+ * Sums notes, coins and the overall total, in the currency's smallest unit.
+ * Coin rolls count towards coins; `rolls` is their share of that, and `coinCount` is how
+ * many coins there are in all, loose and rolled.
+ */
 export function totals(counts, currency) {
-  const sum = (items) => items.reduce((acc, item) => acc + (counts[item.id] ?? 0) * item.value, 0);
+  const count = (item) => counts[item.id] ?? 0;
+  const sum = (items) => items.reduce((acc, item) => acc + count(item) * item.value, 0);
   const notes = sum(currency.notes);
-  const coins = sum(currency.coins);
-  return { notes, coins, total: notes + coins };
+  const rolls = sum(currency.rolls);
+  const coins = sum(currency.coins) + rolls;
+  const coinCount = currency.coins.reduce((acc, item) => acc + count(item), 0) +
+    currency.rolls.reduce((acc, item) => acc + count(item) * item.size, 0);
+  return { notes, coins, rolls, coinCount, total: notes + coins };
 }
 
 /** How tall the drawn pile looks for a count: 0 (none) to 4 (lots). */
@@ -57,7 +65,7 @@ export function pileLevel(count) {
   return 4;
 }
 
-/** Bulk step for "+5"/"+10" buttons and Shift+arrow keys. */
+/** Bulk step for "+5"/"+10" buttons and Shift+arrow keys (rolls go up by 5, like notes). */
 export function bulkStep(item) {
   return item.kind === "coin" ? 10 : 5;
 }

@@ -3,9 +3,7 @@ import { describe, it } from "node:test";
 import {
   bulkStep, clampCount, hasAnyCounts, MAX_COUNT, migrateLegacyCounts, pileLevel, sanitizeCounts, totals,
 } from "../js/counts.js";
-import { CURRENCIES } from "../js/currencies.js";
-
-const AUD = CURRENCIES.AUD;
+import { AUD } from "../js/currencies.js";
 
 describe("clampCount", () => {
   it("keeps valid whole numbers", () => {
@@ -48,26 +46,31 @@ describe("sanitizeCounts", () => {
 });
 
 describe("migrateLegacyCounts", () => {
-  it("converts old dollar-keyed Australian notes to cents", () => {
-    const migrated = migrateLegacyCounts({ n100: 3, n50: 12, c200: 7 }, "AUD");
+  it("converts old dollar-keyed notes to cents", () => {
+    const migrated = migrateLegacyCounts({ n100: 3, n50: 12, c200: 7 });
     assert.equal(migrated.n10000, 3);
     assert.equal(migrated.n5000, 12);
     assert.equal(migrated.c200, 7);
     assert.equal(migrated.n100, undefined);
   });
 
-  it("leaves new-format and other currencies alone", () => {
+  it("leaves new-format and empty data alone", () => {
     const current = { n10000: 1 };
-    assert.equal(migrateLegacyCounts(current, "AUD"), current);
-    const usd = { n100: 4 }; // a US $1 note
-    assert.equal(migrateLegacyCounts(usd, "USD"), usd);
+    assert.equal(migrateLegacyCounts(current), current);
+    assert.equal(migrateLegacyCounts(null), null);
   });
 });
 
 describe("totals", () => {
   it("adds notes and coins separately", () => {
     const counts = sanitizeCounts({ n10000: 3, n5000: 12, c200: 7 }, AUD);
-    assert.deepEqual(totals(counts, AUD), { notes: 90000, coins: 1400, total: 91400 });
+    assert.deepEqual(totals(counts, AUD), { notes: 90000, coins: 1400, rolls: 0, coinCount: 7, total: 91400 });
+  });
+
+  it("counts each coin roll as a full roll of coins", () => {
+    // 2 rolls of $2 ($50, 25 coins each) + 3 rolls of 10c ($4, 40 coins each) + 4 loose $1 coins
+    const counts = sanitizeCounts({ r200: 2, r10: 3, c100: 4 }, AUD);
+    assert.deepEqual(totals(counts, AUD), { notes: 0, coins: 11600, rolls: 11200, coinCount: 174, total: 11600 });
   });
 
   it("stays exact at the maximum count", () => {
@@ -85,6 +88,7 @@ describe("helpers", () => {
   it("uses bigger bulk steps for coins", () => {
     assert.equal(bulkStep(AUD.notes[0]), 5);
     assert.equal(bulkStep(AUD.coins[0]), 10);
+    assert.equal(bulkStep(AUD.rolls[0]), 5);
   });
 
   it("knows when anything is counted", () => {

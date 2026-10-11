@@ -19,14 +19,16 @@ export function summaryText(currency, counts) {
     return `${currency.format(sum)}: ${counted.map((item) => `${item.name}s: ${counts[item.id]}`).join(", ")}.`;
   };
   const { total } = totals(counts, currency);
-  return `Total ${currency.format(total)}. Notes ${describeGroup(currency.notes)} Coins ${describeGroup(currency.coins)}`;
+  const rolls = currency.rolls.some((item) => counts[item.id] > 0) ? ` Coin rolls ${describeGroup(currency.rolls)}` : "";
+  return `Total ${currency.format(total)}. Notes ${describeGroup(currency.notes)} Coins ${describeGroup(currency.coins)}${rolls}`;
 }
 
 function helpText(currency) {
   const exampleNote = currency.notes[1] ?? currency.notes[0];
   const exampleCoin = currency.coins[currency.coins.length - 1];
-  return `You can say things like: add 3 ${exampleNote.name}s. Remove one ${exampleCoin.name}. ` +
-    `Set ${currency.notes[0].name}s to 4. What's the total. Switch to euros. Clear all. Undo. Or stop listening.`;
+  const rollTip = currency.rolls.length ? `Add 2 rolls of ${currency.rolls[0].name.replace(/ roll$/, "")}s. ` : "";
+  return `You can say things like: add 3 ${exampleNote.name}s. Remove one ${exampleCoin.name}. ${rollTip}` +
+    `Set ${currency.notes[0].name}s to 4. What's the total. Clear all. Undo. Or stop listening.`;
 }
 
 /**
@@ -57,7 +59,7 @@ export function initVoice(app, ui) {
     if (!recognition) return;
     try {
       if (on) {
-        recognition.lang = app.currency.locale; // e.g. Indian English for rupees
+        recognition.lang = app.currency.locale;
         recognition.start();
       } else {
         recognition.stop();
@@ -86,9 +88,6 @@ export function initVoice(app, ui) {
         if (!hasAnyCounts(app.counts)) return "There's nothing to clear.";
         app.clearAll();
         return "All counts cleared. Say undo to bring them back.";
-      case "switch":
-        app.switchCurrency(command.code);
-        return `Now counting ${app.currency.name}s. Total ${app.currency.format(totals(app.counts, app.currency).total)}.`;
       case "add":
       case "set": {
         const item = currency.all.find((i) => i.id === command.id);

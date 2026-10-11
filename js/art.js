@@ -18,7 +18,6 @@ function noteFontSize(text) {
 }
 
 function coinFontSize(item) {
-  if (item.hole) return 26;
   if (item.face.length <= 2) return 40;
   if (item.face.length === 3) return 33;
   if (item.face.length === 4) return 27;
@@ -82,13 +81,11 @@ function southernCross() {
   return svg("g", { fill: INK, "fill-opacity": 0.45 }, stars.map(([cx, cy, r]) => svg("circle", { cx, cy, r })));
 }
 
-/** Coin: metal shine, milled or smooth edge, two-metal centre, hole and a big value. */
+/** Coin: metal shine, milled edge, any stars and a big value. */
 export function coinArt(item, currency) {
   const gradientId = `shine-${currency.code}-${item.id}`;
   const fontSize = coinFontSize(item);
-  let textY = 50 + fontSize * 0.36;
-  if (item.hole) textY = 34; // above the hole
-  else if (item.stars) textY = 66; // below the stars
+  const textY = item.stars ? 66 : 50 + fontSize * 0.36; // below the stars on the $2
 
   return svg(
     "svg",
@@ -101,13 +98,11 @@ export function coinArt(item, currency) {
       ),
     ),
     coinShape(item, 49, { class: "art-base" }),
-    item.inner && coinShape(item, 31, { fill: item.inner, stroke: "#000", "stroke-opacity": 0.2 }),
     coinShape(item, 49, { fill: `url(#${gradientId})` }),
-    !item.sides && !item.smooth && svg("circle", {
+    !item.sides && svg("circle", {
       cx: 50, cy: 50, r: 47, fill: "none", stroke: "#000", "stroke-opacity": 0.3, "stroke-width": 3, "stroke-dasharray": "1.2 1.7",
     }),
     coinShape(item, 40, { fill: "none", stroke: "#fff", "stroke-opacity": 0.55, "stroke-width": 1.6 }),
-    item.hole && svg("circle", { class: "art-hole", cx: 50, cy: 50, r: 12, stroke: "#000", "stroke-opacity": 0.35, "stroke-width": 2 }),
     item.stars && southernCross(),
     svg("text", {
       x: 50, y: textY, "text-anchor": "middle", "font-family": FONT, "font-size": fontSize, "font-weight": 800,

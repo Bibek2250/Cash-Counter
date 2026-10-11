@@ -7,7 +7,6 @@
  */
 
 export const STORAGE_KEYS = Object.freeze({
-  currency: "cash-counter-currency",
   calm: "aud-cash-counter-calm", // name kept from the first version so the setting carries over
 });
 
