@@ -1,0 +1,14 @@
+{
+  "name": "cash-counter",
+  "version": "1.1.0",
+  "description": "Count notes and coins in AUD, USD, EUR, JPY, NPR and INR and see the total instantly.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "npx --yes serve@14.2.4 ."
+  }
+}

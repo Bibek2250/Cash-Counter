@@ -1,0 +1,4 @@
+# Store text files with LF line endings so diffs stay clean across Windows, Mac and Linux.
+* text=auto eol=lf
+*.png binary
+*.woff2 binary
