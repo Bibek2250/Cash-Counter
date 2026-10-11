@@ -439,7 +439,8 @@ header h1 {
    -------------------------------------------------------------------------- */
 
 /* The big total panel scrolls with the page (the slim .mini-total takes over
-   once it's out of view). --rx/--ry tilt it in 3D as the mouse moves. */
+   once it's out of view). --rx/--ry tilt it in 3D as the mouse moves, or on phones as the
+   device tilts and where a finger presses (see initTilt in effects.js). */
 .total {
   position: relative;
   z-index: 1;
@@ -464,7 +465,11 @@ header h1 {
   transition: transform .08s linear;
 }
 
-/* Glossy light that follows the mouse */
+.total.following {
+  transition: transform .2s ease-out;
+}
+
+/* Glossy light that follows the mouse (or the device tilt) */
 .total::before {
   content: "";
   position: absolute;

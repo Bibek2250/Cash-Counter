@@ -84,25 +84,91 @@ export function celebrate({ chip, line, target, label, adding, count, spinAxis }
   }
 }
 
-/** Tilts the panel in 3D toward the mouse (mouse and trackpad only, never on touch). */
+const MAX_TILT_X = 7; // degrees, up/down
+const MAX_TILT_Y = 9; // degrees, left/right
+/** How far (degrees) the phone has to turn from its resting angle for the full tilt. */
+const ORIENTATION_RANGE = 20;
+/** How quickly the resting angle catches up with how the phone is held (0–1 per event). */
+const ORIENTATION_DRIFT = 0.02;
+
+const clamp = (n) => Math.max(-1, Math.min(1, n));
+
+/**
+ * Tilts the panel in 3D:
+ * - mouse and trackpad: toward the pointer;
+ * - phones and tablets: as the device is tilted (motion sensor), and toward a finger pressing it.
+ * x and y run from -1 to 1 in the functions below.
+ */
 export function initTilt(panel) {
-  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-
-  panel.addEventListener("pointermove", (event) => {
-    if (isCalm()) return;
-    const box = panel.getBoundingClientRect();
-    const x = (event.clientX - box.left) / box.width;
-    const y = (event.clientY - box.top) / box.height;
-    panel.classList.add("tilting");
-    panel.style.setProperty("--rx", `${((0.5 - y) * 7).toFixed(2)}deg`);
-    panel.style.setProperty("--ry", `${((x - 0.5) * 9).toFixed(2)}deg`);
-    panel.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
-    panel.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
-  });
-
-  panel.addEventListener("pointerleave", () => {
-    panel.classList.remove("tilting");
+  /** follow: "tilting" snaps to the pointer, "following" smooths out the motion sensor. */
+  const setTilt = (x, y, follow) => {
+    panel.classList.toggle("tilting", follow === "tilting");
+    panel.classList.toggle("following", follow === "following");
+    panel.style.setProperty("--rx", `${(-y * MAX_TILT_X).toFixed(2)}deg`);
+    panel.style.setProperty("--ry", `${(x * MAX_TILT_Y).toFixed(2)}deg`);
+    panel.style.setProperty("--mx", `${((x + 1) * 50).toFixed(1)}%`);
+    panel.style.setProperty("--my", `${((y + 1) * 50).toFixed(1)}%`);
+  };
+  const reset = () => {
+    panel.classList.remove("tilting", "following");
     panel.style.setProperty("--rx", "0deg");
     panel.style.setProperty("--ry", "0deg");
+  };
+  const tiltToward = (event) => {
+    const box = panel.getBoundingClientRect();
+    setTilt(((event.clientX - box.left) / box.width) * 2 - 1, ((event.clientY - box.top) / box.height) * 2 - 1, "tilting");
+  };
+
+  if (matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    panel.addEventListener("pointermove", (event) => {
+      if (!isCalm()) tiltToward(event);
+    });
+    panel.addEventListener("pointerleave", reset);
+    return;
+  }
+
+  // Touch: lean toward the finger while it's pressed. Doesn't block scrolling.
+  let pressed = false;
+  panel.addEventListener("pointerdown", (event) => {
+    if (isCalm()) return;
+    pressed = true;
+    tiltToward(event);
   });
+  for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+    panel.addEventListener(type, () => {
+      pressed = false;
+      reset();
+    });
+  }
+
+  initOrientationTilt((x, y) => {
+    if (!pressed && !isCalm()) setTilt(x, y, "following");
+  });
+}
+
+/**
+ * Follows the device's motion sensor. The resting angle is however the phone is being held
+ * and slowly follows it, so only tilting it from there moves the panel.
+ * Some browsers (iPhone and iPad Safari) only send readings once the person allows it, which
+ * can only be asked after a tap; until then the listener simply hears nothing.
+ */
+function initOrientationTilt(onTilt) {
+  if (typeof DeviceOrientationEvent === "undefined") return;
+  let rest = null;
+
+  window.addEventListener("deviceorientation", ({ beta, gamma }) => {
+    if (beta === null || gamma === null) return; // no sensor
+    rest ??= { beta, gamma };
+    rest.beta += (beta - rest.beta) * ORIENTATION_DRIFT;
+    rest.gamma += (gamma - rest.gamma) * ORIENTATION_DRIFT;
+    onTilt(clamp((gamma - rest.gamma) / ORIENTATION_RANGE), clamp((beta - rest.beta) / ORIENTATION_RANGE));
+  });
+
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    document.addEventListener("click", () => {
+      DeviceOrientationEvent.requestPermission().catch(() => {
+        // Declined or unavailable: the panel still tilts when pressed.
+      });
+    }, { once: true });
+  }
 }
