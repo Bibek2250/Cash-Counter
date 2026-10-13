@@ -155,6 +155,14 @@ export function initVoice(app, ui) {
     }
   });
 
+  // Never keep the microphone open in a tab the person isn't looking at.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden || !listening) return;
+    setListening(false);
+    ui.status.hidden = false;
+    ui.status.replaceChildren("Stopped listening because the page was hidden. Press Voice commands to start again.");
+  });
+
   ui.mic.addEventListener("click", () => {
     if (listening) {
       setListening(false);

@@ -396,21 +396,46 @@ function registerServiceWorker() {
 // ---------------------------------------------------------------------------
 // Start.
 
-buildCurrencyView();
-loadSavedCounts();
-wireEvents();
-initMotionSwitch(byId("motionBtn"));
-initTilt(ui.panel);
-initVoice(
-  {
-    get currency() { return state.currency; },
-    get counts() { return state.counts; },
-    adjust,
-    setCount,
-    clearAll: () => clearAll(ui.clearButton),
-    undo,
-    canUndo: () => state.undoCounts !== null,
-  },
-  { mic: byId("micBtn"), read: byId("readBtn"), status: byId("voiceStatus") },
-);
-registerServiceWorker();
+/**
+ * True when another page has loaded the app inside a frame. GitHub Pages can't send the
+ * frame-ancestors header, so this check stops other sites from overlaying the app and
+ * tricking people into clicking its buttons (clickjacking).
+ */
+function isFramed() {
+  try {
+    return window.top !== window.self;
+  } catch {
+    return true; // Reading window.top can throw across origins: that means we're framed.
+  }
+}
+
+function start() {
+  buildCurrencyView();
+  loadSavedCounts();
+  wireEvents();
+  initMotionSwitch(byId("motionBtn"));
+  initTilt(ui.panel);
+  initVoice(
+    {
+      get currency() { return state.currency; },
+      get counts() { return state.counts; },
+      adjust,
+      setCount,
+      clearAll: () => clearAll(ui.clearButton),
+      undo,
+      canUndo: () => state.undoCounts !== null,
+    },
+    { mic: byId("micBtn"), read: byId("readBtn"), status: byId("voiceStatus") },
+  );
+  registerServiceWorker();
+}
+
+if (isFramed()) {
+  document.body.replaceChildren(h("div", { class: "wrap" }, h("p", { class: "framed" },
+    "Cash Counter can't run inside another page. ",
+    h("a", { href: window.location.href, target: "_blank", rel: "noopener noreferrer" }, "Open it in its own tab"),
+    ".",
+  )));
+} else {
+  start();
+}

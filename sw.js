@@ -4,7 +4,7 @@
  * Only this site's own files are ever cached or served from the cache; requests to anywhere
  * else pass straight through untouched. Bump CACHE whenever files change so devices update.
  */
-const CACHE = "cash-counter-v19";
+const CACHE = "cash-counter-v20";
 
 const APP_FILES = [
   "./",
@@ -49,9 +49,16 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/** Only same-origin, successful, non-redirected responses are worth keeping. */
-function isCacheable(response) {
-  return response.ok && response.type === "basic" && !response.redirected;
+/** Full URLs of the app's own files: the only things ever written to the cache. */
+const APP_URLS = new Set(APP_FILES.map((file) => new URL(file, self.location).href));
+
+/**
+ * Only the app's own files, fetched successfully from this site without a redirect, are kept.
+ * Anything else (e.g. "?x=..." links someone crafted) is never stored, so the cache can't be
+ * filled up or have other content slipped into it.
+ */
+function isCacheable(request, response) {
+  return APP_URLS.has(request.url) && response.ok && response.type === "basic" && !response.redirected;
 }
 
 // Network first so updates show up; fall back to the saved copy when offline or slow.
@@ -61,7 +68,7 @@ self.addEventListener("fetch", (event) => {
   if (new URL(request.url).origin !== self.location.origin) return; // never touch other sites
 
   const fromNetwork = fetch(request).then((response) => {
-    if (!isCacheable(response)) return response;
+    if (!isCacheable(request, response)) return response;
     const copy = response.clone();
     return caches.open(CACHE).then((cache) => cache.put(request, copy)).then(() => response);
   });

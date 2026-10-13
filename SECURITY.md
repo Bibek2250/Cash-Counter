@@ -21,13 +21,21 @@ only in the browser's own storage on your device.
 - **Untrusted data is cleaned**: anything read from storage, typed in or heard by voice
   commands is checked against the known notes and coins and clamped to whole numbers from
   0 to 99,999 before use (`sanitizeCounts` in `js/counts.js`, covered by tests).
-- **Offline cache** (`sw.js`): only caches this site's own successful responses and never
-  touches requests to other sites.
+- **Offline cache** (`sw.js`): only ever stores the app's own listed files, fetched
+  successfully from this site, so crafted links can't fill the cache or slip other content
+  into it. Requests to other sites are never touched.
+- **No framing**: the app refuses to run inside another site's page (clickjacking), and shows
+  a link to open it in its own tab instead.
 - **Microphone**: only used after you press "Voice commands", and stops when you press it
-  again. In Chrome and Edge, speech is turned into text by the browser maker's servers.
+  again or switch away from the tab. In Chrome and Edge, speech is turned into text by the
+  browser maker's servers.
+- **Checked automatically**: `tests/security.test.js` fails the build if the Content Security
+  Policy is weakened or any script starts using `innerHTML`, `eval` or similar. GitHub Actions
+  are pinned to exact commits, and Dependabot keeps those pins up to date.
 
 ## Limits
 
 GitHub Pages doesn't allow custom HTTP headers, so protections that only work as headers
-(`frame-ancestors`, `Permissions-Policy`, HSTS preload) can't be set. The app holds no
-secrets or accounts, so the risk from being framed is low.
+(`frame-ancestors`, `Permissions-Policy`, HSTS preload) can't be set. Framing is blocked in
+script instead, which a page that disables scripts in its frame can get around, but then the
+app's buttons do nothing. The app holds no secrets or accounts, so the risk is low.
