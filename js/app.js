@@ -12,6 +12,7 @@ import {
 import { AUD } from "./currencies.js";
 import { h, restartAnimation } from "./dom.js";
 import { celebrate, initMotionSwitch, initTilt, isCalm } from "./effects.js";
+import { initFloat } from "./float-ui.js";
 import { readJSON, writeJSON } from "./storage.js";
 import { initVoice } from "./voice.js";
 
@@ -51,6 +52,9 @@ const state = {
 
 /** Elements for each note/coin row, keyed by id. */
 let rows = new Map();
+
+/** The Float & banking section, once it's set up (see initFloat). */
+let floatView = null;
 
 // ---------------------------------------------------------------------------
 // Screen reader announcements: one settled message, not one per keystroke or frame.
@@ -219,6 +223,7 @@ function commitCounts(next, { instant = false, quiet = false } = {}) {
   state.counts = sanitizeCounts(next, state.currency);
   writeJSON(state.currency.storageKey, state.counts);
   const { changed, total } = render(previous, instant);
+  floatView?.update();
 
   if (quiet || instant) return;
   const fmt = state.currency.format;
@@ -415,6 +420,20 @@ function start() {
   wireEvents();
   initMotionSwitch(byId("motionBtn"));
   initTilt(ui.panel);
+  floatView = initFloat(
+    {
+      currency: state.currency,
+      get counts() { return state.counts; },
+      announce,
+    },
+    {
+      target: byId("floatTarget"),
+      kept: byId("floatKept"),
+      status: byId("floatStatus"),
+      bank: byId("floatBank"),
+      bankSub: byId("bankSub"),
+    },
+  );
   initVoice(
     {
       get currency() { return state.currency; },
@@ -424,6 +443,7 @@ function start() {
       clearAll: () => clearAll(ui.clearButton),
       undo,
       canUndo: () => state.undoCounts !== null,
+      floatSummary: () => floatView.summary(),
     },
     { mic: byId("micBtn"), read: byId("readBtn"), status: byId("voiceStatus") },
   );

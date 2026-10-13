@@ -6,7 +6,7 @@
  *   { type: "add", id, amount }     amount may be negative ("remove 2 ...");
  *                                   "add 2 rolls of $2 coins" gives the roll's id
  *   { type: "set", id, count }      "set ten dollar notes to 4"
- *   { type: "summary" | "clear" | "undo" | "help" | "stop" }
+ *   { type: "summary" | "float" | "clear" | "undo" | "help" | "stop" }
  * Returns null when the phrase isn't understood.
  */
 
@@ -88,6 +88,7 @@ export function parseCommand(text, currency) {
   }
   if (/\bundo\b/.test(t)) return { type: "undo" };
   if (/\b(clear|reset|start over)\b/.test(t)) return { type: "clear" };
+  if (!found && /\b(float|bank|banking|deposit)\b/.test(t)) return { type: "float" };
   if (!found) return /\b(total|how much|read|summary|count)\b/.test(t) ? { type: "summary" } : null;
 
   const { rest } = found;

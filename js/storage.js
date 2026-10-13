@@ -8,6 +8,7 @@
 
 export const STORAGE_KEYS = Object.freeze({
   calm: "aud-cash-counter-calm", // name kept from the first version so the setting carries over
+  float: "aud-cash-counter-float",
 });
 
 export function readString(key) {

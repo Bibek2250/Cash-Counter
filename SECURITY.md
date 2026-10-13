@@ -20,7 +20,8 @@ only in the browser's own storage on your device.
   companies. `<meta name="referrer" content="no-referrer">` stops the address leaking out.
 - **Untrusted data is cleaned**: anything read from storage, typed in or heard by voice
   commands is checked against the known notes and coins and clamped to whole numbers from
-  0 to 99,999 before use (`sanitizeCounts` in `js/counts.js`, covered by tests).
+  0 to 99,999 before use (`sanitizeCounts` in `js/counts.js`, covered by tests). The saved
+  float is checked the same way (`sanitizeFloatTarget` in `js/float.js`).
 - **Offline cache** (`sw.js`): only ever stores the app's own listed files, fetched
   successfully from this site, so crafted links can't fill the cache or slip other content
   into it. Requests to other sites are never touched.

@@ -91,7 +91,33 @@
     </section>
   </div>
 
-  <p class="tips" id="tips">Tap a number to type it in. With a keyboard, use the <kbd>↑</kbd> and <kbd>↓</kbd> arrow keys to change a count, and hold <kbd>Shift</kbd> to add or remove 5 notes, 10 coins or 5 rolls at a time. Each coin also has a counter for bank rolls of that coin (the value of a full roll is shown next to it), and its line total covers loose coins and rolls together. Press <strong>Voice commands</strong> and say things like “add 3 fifty dollar notes”, “remove one 20 cent coin”, “add 2 rolls of 1 dollar coins”, “what's the total” or “help”.</p>
+  <!-- Float & banking: what stays in the till, and what goes to the bank -->
+  <section class="float-section" aria-labelledby="floatHead">
+    <h2 id="floatHead">Float &amp; banking <span class="st" id="bankSub">Bank $0.00</span></h2>
+    <div class="ledger float-card">
+      <label class="field" for="floatTarget">
+        <span class="field-label">Float to keep in the till</span>
+        <span class="money-box">
+          <span aria-hidden="true">$</span>
+          <input class="money" id="floatTarget" type="text" inputmode="decimal" autocomplete="off" maxlength="10" placeholder="e.g. 200" aria-describedby="floatHelp">
+        </span>
+      </label>
+      <p class="float-help" id="floatHelp">Enter how much to leave in the till. Everything else you've counted is the amount to bank.</p>
+      <div class="float-summary">
+        <div class="float-stat">
+          <span class="label">Keep in till</span>
+          <b id="floatKept">$0.00</b>
+          <span class="float-status" id="floatStatus" hidden></span>
+        </div>
+        <div class="float-stat bank-stat">
+          <span class="label">To bank</span>
+          <b id="floatBank">$0.00</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="tips" id="tips">Tap a number to type it in. With a keyboard, use the <kbd>↑</kbd> and <kbd>↓</kbd> arrow keys to change a count, and hold <kbd>Shift</kbd> to add or remove 5 notes, 10 coins or 5 rolls at a time. Each coin also has a counter for bank rolls of that coin (the value of a full roll is shown next to it), and its line total covers loose coins and rolls together. Press <strong>Voice commands</strong> and say things like “add 3 fifty dollar notes”, “remove one 20 cent coin”, “add 2 rolls of 1 dollar coins”, “what's the total”, “how much do I bank” or “help”.</p>
   </main>
 </div>
 

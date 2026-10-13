@@ -68,6 +68,14 @@ describe("parseCommand: other commands", () => {
     expectCommand("stop listening", { type: "stop" });
   });
 
+  it("asks about the float and banking", () => {
+    expectCommand("how much do I bank", { type: "float" });
+    expectCommand("what's the float", { type: "float" });
+    expectCommand("read the deposit", { type: "float" });
+    // A note or coin in the phrase still means counting it.
+    expectCommand("add 2 $20 notes to the bank", { type: "add", id: "n2000", amount: 2 });
+  });
+
   it("returns null for anything else", () => {
     expectCommand("blah blah", null);
     expectCommand("add 3 $7 notes", null); // there's no $7 note

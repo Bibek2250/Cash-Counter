@@ -985,6 +985,126 @@ input.qty:focus {
 }
 
 
+/* 8b. Float & banking
+   -------------------------------------------------------------------------- */
+
+.float-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.field {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* "$" in front of the float amount, inside the same sunken box */
+.money-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-solid);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .1);
+  color: var(--muted);
+  font: 600 1.05rem var(--mono);
+}
+
+.money-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .1), 0 0 0 4px var(--accent-soft);
+}
+
+input.money {
+  width: 9ch;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit; /* 16px+ stops iOS zooming in on focus */
+  font-variant-numeric: tabular-nums;
+}
+
+input.money:focus-visible {
+  outline: none; /* the whole .money-box shows focus instead */
+}
+
+.float-help {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+/* Keep in till | To bank */
+.float-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.float-stat {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.float-stat b {
+  font: 700 1.5rem var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-stat {
+  background: var(--total-bg);
+  color: var(--total-fg);
+}
+
+.bank-stat b {
+  color: var(--highlight);
+}
+
+/* "$50.00 short of the $200.00 float" */
+.float-status {
+  color: #c2521f;
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.float-status[hidden] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .float-status { color: #ff9466; }
+}
+
+@media (max-width: 599px) {
+  .float-card {
+    padding: 12px;
+  }
+
+  .float-stat b {
+    font-size: 1.25rem;
+  }
+}
+
+
 /* 9. Undo toast (shown after "Clear all")
    -------------------------------------------------------------------------- */
 

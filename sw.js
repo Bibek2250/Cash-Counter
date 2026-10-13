@@ -4,7 +4,7 @@
  * Only this site's own files are ever cached or served from the cache; requests to anywhere
  * else pass straight through untouched. Bump CACHE whenever files change so devices update.
  */
-const CACHE = "cash-counter-v20";
+const CACHE = "cash-counter-v21";
 
 const APP_FILES = [
   "./",
@@ -17,6 +17,8 @@ const APP_FILES = [
   "./js/currencies.js",
   "./js/dom.js",
   "./js/effects.js",
+  "./js/float.js",
+  "./js/float-ui.js",
   "./js/storage.js",
   "./js/voice.js",
   "./js/voice-parser.js",

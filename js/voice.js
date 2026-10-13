@@ -28,7 +28,7 @@ function helpText(currency) {
   const exampleCoin = currency.coins[currency.coins.length - 1];
   const rollTip = currency.rolls.length ? `Add 2 rolls of ${currency.rolls[0].name.replace(/ roll$/, "")}s. ` : "";
   return `You can say things like: add 3 ${exampleNote.name}s. Remove one ${exampleCoin.name}. ${rollTip}` +
-    `Set ${currency.notes[0].name}s to 4. What's the total. Clear all. Undo. Or stop listening.`;
+    `Set ${currency.notes[0].name}s to 4. What's the total. How much do I bank. Clear all. Undo. Or stop listening.`;
 }
 
 /**
@@ -80,6 +80,8 @@ export function initVoice(app, ui) {
         return helpText(currency);
       case "summary":
         return summaryText(currency, app.counts);
+      case "float":
+        return app.floatSummary();
       case "undo":
         if (!app.canUndo()) return "There's nothing to undo.";
         app.undo();
