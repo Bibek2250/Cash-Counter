@@ -42,7 +42,6 @@ function coin(value, color, diameterMm, extras = {}) {
 const DEFINITION = {
   code: "AUD", name: "Australian dollar", locale: "en-AU", minor: 100, symbol: "$", logo: "$",
   unit: "dollar", subunit: "cent", subunitMark: "c", country: "AUSTRALIA",
-  storageKey: "aud-cash-counter-v3", // the app's original save slot, so old counts carry over
   notes: [
     note(10000, "#2f8f4e", 158, 65, 5), note(5000, "#d9a514", 151, 65, 4), note(2000, "#d2502f", 144, 65, 3),
     note(1000, "#2d6fc0", 137, 65, 2), note(500, "#a2508f", 130, 65, 1),

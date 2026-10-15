@@ -10,8 +10,12 @@ works offline, and can be installed on a phone or computer.
 - Drawn notes and coins at their real relative sizes, with piles that grow as you count
 - Count loose coins and bank rolls of each coin side by side
 - Float & banking: enter how much to leave in the till and see the amount to bank
-- Your count is saved on the device; Undo after Clear all
-- Voice commands ("add 3 fifty dollar notes", "add 2 rolls of 1 dollar coins", "what's the total", "how much do I bank") and Read total
+- Safe count: switch between Till and Safe, count the safe's notes and coin rolls, and see
+  whether it's balanced, over or short against the expected amount
+- Print safe count: a plain printed report of the safe, line by line, with the result
+- Counts last until you close the app (a refresh keeps them); the float and expected safe
+  amounts are remembered. Undo after Clear all
+- Read total: hear the count spoken aloud
 - Accessible: screen reader announcements, full keyboard use (arrow keys, Shift for bulk),
   a Reduce motion switch, high-contrast and forced-colours support
 - Works offline as an installable web app
@@ -29,9 +33,12 @@ js/
   counts.js           Pure counting logic (clamping, totals, saved-data cleanup)
   float.js            Pure float maths (amount parsing, float/bank split)
   float-ui.js         Float & banking section
+  safe.js             Pure safe check maths (balanced, over or short)
+  safe-ui.js          Safe check section
+  report.js           Pure printed safe report
+  print-ui.js         Print safe count button and print layout
   art.js              Drawn notes and coins (SVG)
-  voice-parser.js     Pure phrase → command parsing
-  voice.js            Speech recognition and read-aloud
+  read-aloud.js       "Read total" (speech synthesis)
   effects.js          Animations and the reduce-motion setting
   storage.js          Safe localStorage access
   dom.js              Element helpers (no HTML strings)

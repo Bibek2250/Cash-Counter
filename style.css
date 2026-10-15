@@ -283,7 +283,7 @@ html {
   scroll-padding-top: calc(88px + env(safe-area-inset-top));
 }
 
-/* Header buttons: Read total, Voice commands, Reduce motion */
+/* Header buttons: Read total, Reduce motion */
 .tools {
   display: flex;
   flex-wrap: wrap;
@@ -323,19 +323,6 @@ html {
   display: none;
 }
 
-/* Microphone is on: red, with a pulsing ring */
-.mic.listening {
-  border-color: #c62828;
-  background: #c62828;
-  color: #fff;
-  animation: listen 1.4s ease-out infinite;
-}
-
-@keyframes listen {
-  from { box-shadow: 0 0 0 0 rgba(198, 40, 40, .5); }
-  to   { box-shadow: 0 0 0 12px rgba(198, 40, 40, 0); }
-}
-
 /* "Reduce motion" switch; aria-pressed="true" when it's on.
    The little switch track is drawn before the text. */
 .motion-btn::before {
@@ -350,8 +337,8 @@ html {
   background: radial-gradient(circle at 20px 50%, var(--surface-solid) 5px, transparent 5.5px) var(--accent);
 }
 
-/* What the voice feature heard and replied, in writing */
-.voice-status {
+/* What "Read total" said, in writing */
+.read-status {
   margin: 0;
   padding: 10px 14px;
   border: 1px solid var(--line);
@@ -362,14 +349,8 @@ html {
   font-size: .95rem;
 }
 
-.voice-status[hidden] {
+.read-status[hidden] {
   display: none;
-}
-
-.voice-status .heard {
-  display: block;
-  color: var(--muted);
-  font-size: .85rem;
 }
 
 /* Keyboard help under the ledgers */
@@ -439,8 +420,7 @@ header h1 {
    -------------------------------------------------------------------------- */
 
 /* The big total panel scrolls with the page (the slim .mini-total takes over
-   once it's out of view). --rx/--ry tilt it in 3D as the mouse moves, or on phones as the
-   device tilts and where a finger presses (see initTilt in effects.js). */
+   once it's out of view). */
 .total {
   position: relative;
   z-index: 1;
@@ -456,27 +436,16 @@ header h1 {
     inset 0 -6px 18px -8px rgba(0, 0, 0, .45),
     0 24px 50px -24px rgba(44, 29, 72, .85),
     0 8px 18px -10px rgba(0, 0, 0, .35);
-  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transform-style: preserve-3d;
-  transition: transform .5s var(--ease);
 }
 
-.total.tilting {
-  transition: transform .08s linear;
-}
-
-.total.following {
-  transition: transform .2s ease-out;
-}
-
-/* Glossy light that follows the mouse (or the device tilt) */
+/* Glossy light across the top of the panel */
 .total::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: radial-gradient(
-    circle at var(--mx, 30%) var(--my, 0%),
+    circle at 30% 0%,
     rgba(255, 255, 255, .22),
     transparent 55%
   );
@@ -502,15 +471,6 @@ header h1 {
 @keyframes sweep {
   from { background-position: 150% 0; }
   to   { background-position: -50% 0; }
-}
-
-/* Lift the contents off the panel for a layered 3D look */
-.total > * {
-  transform: translateZ(30px);
-}
-
-.total .bar {
-  transform: translateZ(18px);
 }
 
 /* Big total on the left, notes/coins subtotals on the right */
@@ -633,7 +593,6 @@ header h1 {
 /* Keyboard focus ring for all controls */
 .btn:focus-visible,
 .step:focus-visible,
-.quick:focus-visible,
 input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -939,31 +898,6 @@ section h2 .st {
   box-shadow: 0 0 0 var(--edge), 0 1px 2px rgba(0, 0, 0, .2);
 }
 
-/* +5 / +10 bulk buttons */
-.quick {
-  height: 28px;
-  padding: 0 8px;
-  border: 1px dashed var(--line);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: 600 .75rem var(--mono);
-  cursor: pointer;
-  transition: transform .15s var(--spring), color .2s, border-color .2s, background-color .2s;
-}
-
-.quick:hover {
-  border-style: solid;
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-  transform: translateY(-1px) scale(1.05);
-}
-
-.quick:active {
-  transform: scale(.95);
-}
-
 /* Count box: sunken into the card */
 input.qty {
   width: 70px;
@@ -1105,6 +1039,132 @@ input.money:focus-visible {
 }
 
 
+/* 8c. Till / Safe switch and Safe check
+   -------------------------------------------------------------------------- */
+
+/* The safe gets its own colour, so it's always clear which count is on screen */
+:root[data-mode="safe"] {
+  --total-bg: linear-gradient(140deg, #2f8a78 0%, #1d5f52 45%, #0f3a32 100%);
+}
+
+:root[data-mode="safe"] .mini-total {
+  background: var(--total-bg);
+}
+
+/* The safe only holds coin rolls: hide loose coins and move the roll counter into their place */
+:root[data-mode="safe"] .loose-counter {
+  display: none;
+}
+
+:root[data-mode="safe"] .roll-counter {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  max-width: 360px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.mode-btn {
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 700 .95rem var(--display);
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+
+.mode-btn:hover {
+  color: var(--fg);
+}
+
+.mode-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mode-btn[aria-pressed="true"] {
+  background: var(--total-bg);
+  color: var(--total-fg);
+}
+
+/* "Print safe count": the safe's green, so it can't be mistaken for the coral "Clear all" */
+.print-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--total-bg);
+  color: var(--total-fg);
+  font: 700 .95rem var(--display);
+  cursor: pointer;
+  box-shadow: 0 4px 0 #0b2b25, 0 8px 16px -8px rgba(0, 0, 0, .5);
+  transition: transform .12s var(--ease), box-shadow .12s var(--ease), filter .2s;
+}
+
+.print-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.print-btn:hover {
+  filter: brightness(1.1);
+}
+
+.print-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #0b2b25;
+}
+
+.print-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 599px) {
+  .print-btn {
+    justify-self: stretch;
+  }
+}
+
+/* Balanced / Over by / Short by */
+.safe-result[data-status="balanced"] {
+  background: #dff3e6;
+  color: #1d6b3a;
+}
+
+.safe-result[data-status="over"] {
+  background: #fff1d6;
+  color: #8a5a00;
+}
+
+.safe-result[data-status="short"] {
+  background: #fde3da;
+  color: #a63b14;
+}
+
+@media (prefers-color-scheme: dark) {
+  .safe-result[data-status="balanced"] { background: #173a26; color: #8fe0ad; }
+  .safe-result[data-status="over"]     { background: #3d2f12; color: #ffd27a; }
+  .safe-result[data-status="short"]    { background: #43201a; color: #ff9466; }
+}
+
+
 /* 9. Undo toast (shown after "Clear all")
    -------------------------------------------------------------------------- */
 
@@ -1231,6 +1291,16 @@ input.money:focus-visible {
   .row .counter { grid-area: counter; }
   .row .roll-counter { grid-area: rolls; }
 
+  :root[data-mode="safe"] .row:has(.roll-counter) {
+    grid-template-areas:
+      "denom line"
+      "rolls rolls";
+  }
+
+  :root[data-mode="safe"] .row .roll-counter {
+    grid-area: rolls;
+  }
+
   .counter {
     flex-wrap: nowrap;
   }
@@ -1245,11 +1315,6 @@ input.money:focus-visible {
   .line {
     min-width: 0;
   }
-
-  /* Same width for +5 and +10, so a coin's two count boxes line up */
-  .quick {
-    min-width: 40px;
-  }
 }
 
 /* Very small phones (up to 360px) */
@@ -1261,10 +1326,6 @@ input.money:focus-visible {
   .chip {
     --note-scale: .48px;
     --coin-scale: 1.3px;
-  }
-
-  .quick {
-    padding: 0 6px;
   }
 }
 
@@ -1354,11 +1415,6 @@ input.money:focus-visible {
     font-size: 1.05rem;
   }
 
-  .quick {
-    height: 44px;
-    min-width: 44px;
-  }
-
   .toast-btn {
     min-height: 44px;
   }
@@ -1368,7 +1424,7 @@ input.money:focus-visible {
 /* 12. Accessibility preferences
    -------------------------------------------------------------------------- */
 
-/* Turn off all animation and 3D tilt for people who ask for less motion,
+/* Turn off all animation for people who ask for less motion,
    either in their device settings or with the "Reduce motion" switch */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1377,10 +1433,6 @@ input.money:focus-visible {
     animation: none !important;
     transition: none !important;
   }
-
-  .total {
-    transform: none;
-  }
 }
 
 html.calm *,
@@ -1388,10 +1440,6 @@ html.calm ::before,
 html.calm ::after {
   animation: none !important;
   transition: none !important;
-}
-
-html.calm .total {
-  transform: none;
 }
 
 /* Higher contrast when the device asks for it */
@@ -1410,10 +1458,6 @@ html.calm .total {
   .chip[data-stack="0"] {
     opacity: 1;
     filter: none;
-  }
-
-  .quick {
-    border-style: solid;
   }
 
   body::before,
@@ -1448,7 +1492,9 @@ html.calm .total {
 
   .btn,
   .toast-btn,
-  .mic.listening,
+  .print-btn,
+  .mode-btn[aria-pressed="true"],
+  .safe-result,
   .mini-total,
   .total,
   .toast {
@@ -1458,5 +1504,135 @@ html.calm .total {
   body::before,
   body::after {
     display: none;
+  }
+}
+
+
+/* 12. Printed report
+   -------------------------------------------------------------------------- */
+
+/* Only exists on paper: built by print-ui.js when printing */
+.print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 15mm;
+  }
+
+  /* Only the safe has a printed report; printing the till is left to the browser */
+  :root[data-mode="safe"] body {
+    background: #fff;
+    color: #000;
+    font: 11pt/1.4 var(--display);
+  }
+
+  :root[data-mode="safe"] body::before,
+  :root[data-mode="safe"] body::after,
+  :root[data-mode="safe"] .wrap {
+    display: none !important;
+  }
+
+  :root[data-mode="safe"] .print-report {
+    display: block;
+  }
+
+  .print-report h1 {
+    margin: 0;
+    font-size: 20pt;
+  }
+
+  .print-report .printed {
+    margin: 2pt 0 14pt;
+    color: #444;
+  }
+
+  .print-report table {
+    width: 100%;
+    margin-bottom: 12pt;
+    border-collapse: collapse;
+    table-layout: fixed; /* same column widths in every table, so the numbers line up */
+    break-inside: avoid;
+  }
+
+  .print-report thead th:first-child {
+    width: 56%;
+  }
+
+  .print-report th,
+  .print-report td {
+    padding: 4pt 6pt;
+    border-bottom: 1px solid #bbb;
+    text-align: left;
+  }
+
+  /* "How many" and "Amount" line up as numbers */
+  .print-report td:not(:first-child),
+  .print-report thead th:not(:first-child),
+  .print-report tfoot td {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .print-report thead th {
+    border-bottom: 2px solid #000;
+  }
+
+  .print-report tfoot th,
+  .print-report tfoot td {
+    border-top: 2px solid #000;
+    border-bottom: 0;
+    font-weight: 700;
+  }
+
+  .print-report tr.zero td {
+    color: #777;
+  }
+
+  .report-summary {
+    margin: 6pt 0 0;
+    border: 2px solid #000;
+    break-inside: avoid;
+  }
+
+  .report-summary div {
+    display: flex;
+    justify-content: space-between;
+    padding: 6pt 10pt;
+    border-top: 1px solid #bbb;
+  }
+
+  .report-summary div:first-child {
+    border-top: 0;
+  }
+
+  .report-summary dt {
+    font-weight: 600;
+  }
+
+  .report-summary dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+
+  .report-summary .grand {
+    font-size: 14pt;
+  }
+
+  /* Over / short stand out even in black and white */
+  .report-summary [data-status="short"],
+  .report-summary [data-status="over"] {
+    font-size: 13pt;
+    text-decoration: underline;
+  }
+
+  .signatures {
+    display: flex;
+    gap: 24pt;
+    margin-top: 28pt;
+    break-inside: avoid;
   }
 }

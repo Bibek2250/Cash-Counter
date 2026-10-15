@@ -47,8 +47,6 @@ describe("AUD", () => {
     assert.equal(AUD.all.length, AUD.denominations.length + AUD.rolls.length);
   });
 
-  it("keeps the app's original save slot", () => assert.equal(AUD.storageKey, "aud-cash-counter-v3"));
-
   it("is frozen so it can't be changed at runtime", () => {
     assert.ok(Object.isFrozen(AUD) && Object.isFrozen(AUD.all) && Object.isFrozen(AUD.all[0]));
   });

@@ -5,7 +5,7 @@
 /** Largest count per note/coin. Keeps every total far inside Number.MAX_SAFE_INTEGER. */
 export const MAX_COUNT = 99999;
 
-/** Turns anything (typed text, saved data, voice input) into a whole count from 0 to MAX_COUNT. */
+/** Turns anything (typed text, saved data) into a whole count from 0 to MAX_COUNT. */
 export function clampCount(value) {
   const n = Math.floor(Number(value));
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -23,21 +23,6 @@ export function sanitizeCounts(raw, currency) {
     counts[item.id] = Object.hasOwn(source, item.id) ? clampCount(source[item.id]) : 0;
   }
   return counts;
-}
-
-/**
- * Older versions saved notes by dollar value ("n100" = $100). They are now keyed
- * by cents ("n10000"). Returns a converted copy; anything else is returned unchanged.
- */
-export function migrateLegacyCounts(raw) {
-  if (raw === null || typeof raw !== "object") return raw;
-  if (!Object.hasOwn(raw, "n100") || Object.hasOwn(raw, "n10000")) return raw;
-  const migrated = { ...raw };
-  for (const dollars of [100, 50, 20, 10, 5]) {
-    migrated[`n${dollars * 100}`] = raw[`n${dollars}`];
-    delete migrated[`n${dollars}`];
-  }
-  return migrated;
 }
 
 /**
@@ -65,7 +50,7 @@ export function pileLevel(count) {
   return 4;
 }
 
-/** Bulk step for "+5"/"+10" buttons and Shift+arrow keys (rolls go up by 5, like notes). */
+/** Bulk step for Shift+arrow keys: 5 notes, 10 coins, 5 rolls. */
 export function bulkStep(item) {
   return item.kind === "coin" ? 10 : 5;
 }
@@ -73,4 +58,14 @@ export function bulkStep(item) {
 /** True when at least one note or coin is counted. */
 export function hasAnyCounts(counts) {
   return Object.values(counts).some((n) => n > 0);
+}
+
+/**
+ * Counts with no loose coins, for the safe (which only holds coin rolls).
+ * Coins that can't be rolled are kept, so nothing is lost if a currency has one.
+ */
+export function rollsOnly(counts, currency) {
+  const next = { ...counts };
+  for (const roll of currency.rolls) next[roll.coinId] = 0;
+  return next;
 }

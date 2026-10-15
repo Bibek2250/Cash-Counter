@@ -34,24 +34,26 @@
     <div class="tools">
       <button class="pill" id="readBtn" type="button">
         <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
-        Read total
-      </button>
-      <button class="pill mic" id="micBtn" type="button" aria-pressed="false">
-        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9h-2z"/></svg>
-        Voice commands
+        <span id="readLabel">Read total</span>
       </button>
       <button class="pill motion-btn" id="motionBtn" type="button" aria-pressed="false">Reduce motion</button>
     </div>
   </header>
 
-  <!-- What voice commands heard and did, shown on screen as well as spoken -->
-  <p class="voice-status" id="voiceStatus" hidden></p>
+  <!-- What "Read total" says, shown on screen as well as spoken -->
+  <p class="read-status" id="readStatus" hidden></p>
 
   <main>
-  <div class="total" role="region" aria-label="Total">
+  <!-- Till and safe are counted separately; each keeps its own count -->
+  <div class="mode-switch" role="group" aria-label="What are you counting?">
+    <button class="mode-btn" type="button" data-mode="till" aria-pressed="true">Till</button>
+    <button class="mode-btn" type="button" data-mode="safe" aria-pressed="false">Safe</button>
+  </div>
+
+  <div class="total" role="region" aria-label="Till total">
     <div class="toprow">
       <div>
-        <div class="label">Total</div>
+        <div class="label" id="totalLabel">Till total</div>
         <div class="amount" id="grand">$0.00</div>
       </div>
       <div class="sub">
@@ -67,7 +69,7 @@
        The numbers are hidden from screen readers (they hear changes through #announce). -->
   <div class="mini-total" id="miniTotal">
     <div class="mini-info" aria-hidden="true">
-      <span class="label">Total</span>
+      <span class="label" id="miniLabel">Till total</span>
       <span class="mini-amount" id="miniGrand">$0.00</span>
       <span class="mini-sub">Notes <b id="miniNotes">$0.00</b> · Coins <b id="miniCoins">$0.00</b></span>
     </div>
@@ -86,13 +88,13 @@
       <div class="ledger" id="notes"></div>
     </section>
     <section aria-labelledby="coinsHead">
-      <h2 id="coinsHead">Coins <span class="st" id="coinsSub2">$0.00</span></h2>
+      <h2 id="coinsHead"><span id="coinsTitle">Coins</span> <span class="st" id="coinsSub2">$0.00</span></h2>
       <div class="ledger" id="coins"></div>
     </section>
   </div>
 
   <!-- Float & banking: what stays in the till, and what goes to the bank -->
-  <section class="float-section" aria-labelledby="floatHead">
+  <section class="float-section" id="floatSection" aria-labelledby="floatHead">
     <h2 id="floatHead">Float &amp; banking <span class="st" id="bankSub">Bank $0.00</span></h2>
     <div class="ledger float-card">
       <label class="field" for="floatTarget">
@@ -117,9 +119,42 @@
     </div>
   </section>
 
-  <p class="tips" id="tips">Tap a number to type it in. With a keyboard, use the <kbd>↑</kbd> and <kbd>↓</kbd> arrow keys to change a count, and hold <kbd>Shift</kbd> to add or remove 5 notes, 10 coins or 5 rolls at a time. Each coin also has a counter for bank rolls of that coin (the value of a full roll is shown next to it), and its line total covers loose coins and rolls together. Press <strong>Voice commands</strong> and say things like “add 3 fifty dollar notes”, “remove one 20 cent coin”, “add 2 rolls of 1 dollar coins”, “what's the total”, “how much do I bank” or “help”.</p>
+  <!-- Safe check: is the safe balanced, over or short? (Safe mode only) -->
+  <section class="float-section" id="safeSection" aria-labelledby="safeHead" hidden>
+    <h2 id="safeHead">Safe check <span class="st" id="safeSub"></span></h2>
+    <div class="ledger float-card">
+      <label class="field" for="safeExpected">
+        <span class="field-label">Expected in the safe</span>
+        <span class="money-box">
+          <span aria-hidden="true">$</span>
+          <input class="money" id="safeExpected" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="e.g. 2000" aria-describedby="safeHelp">
+        </span>
+      </label>
+      <p class="float-help" id="safeHelp">Enter how much should be in the safe, then count it. You'll see straight away whether it's balanced, over or short.</p>
+      <div class="float-summary">
+        <div class="float-stat">
+          <span class="label">Counted</span>
+          <b id="safeCounted">$0.00</b>
+        </div>
+        <div class="float-stat safe-result" id="safeResult" data-status="unset">
+          <span class="label" id="safeResultLabel">Enter the expected amount</span>
+          <b id="safeResultAmount"></b>
+        </div>
+      </div>
+      <!-- Last step of a safe count: print the sheet to sign -->
+      <button class="print-btn" id="printBtn" type="button">
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M18 3H6v4h12V3zm1 5H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3zm-3 11H8v-5h8v5zm3-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+        Print safe count
+      </button>
+    </div>
+  </section>
+
+  <p class="tips" id="tips">Tap a number to type it in. With a keyboard, use the <kbd>↑</kbd> and <kbd>↓</kbd> arrow keys to change a count, and hold <kbd>Shift</kbd> to add or remove 5 notes, 10 coins or 5 rolls at a time. Each coin also has a counter for bank rolls of that coin (the value of a full roll is shown next to it), and its line total covers loose coins and rolls together. In Safe mode only coin rolls are counted, as the safe holds no loose coins. Counts are cleared when you close the app; the float and expected safe amounts are remembered.</p>
   </main>
 </div>
+
+<!-- Printed safe count report, built when printing in Safe mode (see print-ui.js) -->
+<section class="print-report" id="printReport" aria-hidden="true"></section>
 
 <div class="sr-only" id="announce" aria-live="polite" aria-atomic="true"></div>
 

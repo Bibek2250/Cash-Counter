@@ -1,20 +1,26 @@
 /**
  * Cash Counter: entry point.
  *
- * All counts live in `state.counts` (one number per note/coin id). Every change goes through
- * commitCounts(), which saves, re-renders and announces, so the page can never drift out of
- * sync with the data.
+ * The counts being worked on live in `state.counts` (one number per note/coin id). Every change
+ * goes through commitCounts(), which saves, re-renders and announces, so the page can never
+ * drift out of sync with the data.
+ *
+ * The till and the safe are counted separately: `state.mode` says which one is on screen, and
+ * each has its own counts in sessionStorage, so they survive a refresh but start empty every
+ * time the app is opened.
  */
 import { coinArt, noteArt } from "./art.js";
 import {
-  bulkStep, clampCount, hasAnyCounts, MAX_COUNT, migrateLegacyCounts, pileLevel, sanitizeCounts, totals,
+  bulkStep, clampCount, hasAnyCounts, MAX_COUNT, pileLevel, rollsOnly, sanitizeCounts, totals,
 } from "./counts.js";
 import { AUD } from "./currencies.js";
 import { h, restartAnimation } from "./dom.js";
-import { celebrate, initMotionSwitch, initTilt, isCalm } from "./effects.js";
+import { celebrate, initMotionSwitch, isCalm } from "./effects.js";
 import { initFloat } from "./float-ui.js";
-import { readJSON, writeJSON } from "./storage.js";
-import { initVoice } from "./voice.js";
+import { initPrint } from "./print-ui.js";
+import { initSafe } from "./safe-ui.js";
+import { LEGACY_COUNTS_KEY, readSessionJSON, removeString, SESSION_KEYS, writeSessionJSON } from "./storage.js";
+import { initReadAloud } from "./read-aloud.js";
 
 const UNDO_TIMEOUT_MS = 10_000;
 const ANNOUNCE_DELAY_MS = 600;
@@ -24,6 +30,12 @@ const MAX_DIGITS = String(MAX_COUNT).length;
 const byId = (id) => document.getElementById(id);
 const ui = {
   panel: document.querySelector(".total"),
+  modeButtons: [...document.querySelectorAll("[data-mode]")],
+  totalLabel: byId("totalLabel"),
+  miniLabel: byId("miniLabel"),
+  floatSection: byId("floatSection"),
+  safeSection: byId("safeSection"),
+  coinsTitle: byId("coinsTitle"),
   grand: byId("grand"),
   bar: byId("bar"),
   clearButton: byId("clearBtn"),
@@ -41,8 +53,13 @@ const ui = {
   announcer: byId("announce"),
 };
 
+/** What can be counted, and how it's named on screen. */
+const MODES = { till: "Till", safe: "Safe" };
+
 const state = {
   currency: AUD,
+  /** "till" or "safe": which count is on screen. */
+  mode: "till",
   counts: {},
   /** Counts from before "Clear all", while Undo is still on offer. */
   undoCounts: null,
@@ -55,6 +72,9 @@ let rows = new Map();
 
 /** The Float & banking section, once it's set up (see initFloat). */
 let floatView = null;
+
+/** The Safe check section, once it's set up (see initSafe). */
+let safeView = null;
 
 // ---------------------------------------------------------------------------
 // Screen reader announcements: one settled message, not one per keystroke or frame.
@@ -108,18 +128,15 @@ function animateTotal(target, instant) {
 // ---------------------------------------------------------------------------
 // Building the rows for the current currency.
 
-/** −, count box, + and the bulk button for one countable item. */
+/** −, count box and + for one countable item. */
 function buildStepper(item, labelSuffix = "") {
-  const bulk = bulkStep(item);
   const minus = h("button", { class: "step", type: "button", "aria-label": `Remove one ${item.name}`, dataset: { step: "-1" } }, "−");
   const input = h("input", {
     class: "qty", type: "text", inputmode: "numeric", pattern: "[0-9]*", maxlength: MAX_DIGITS,
     autocomplete: "off", id: `q-${item.id}`, "aria-label": `Number of ${item.name}s${labelSuffix}`, "aria-describedby": "tips", value: "0",
   });
   const plus = h("button", { class: "step", type: "button", "aria-label": `Add one ${item.name}`, dataset: { step: "1" } }, "+");
-  // The name starts with the visible text so voice-control users can say "click plus 5".
-  const quick = h("button", { class: "quick", type: "button", "aria-label": `+${bulk} ${item.name}s`, dataset: { step: String(bulk) } }, `+${bulk}`);
-  return { minus, input, controls: [minus, input, plus, quick] };
+  return { minus, input, controls: [minus, input, plus] };
 }
 
 /**
@@ -145,7 +162,8 @@ function buildRow(item, index) {
   const looseLabel = roll && h("span", { class: "counter-label", "aria-hidden": "true" }, "Coins");
   const row = h("div", { class: "row", dataset: { id: item.id }, style: { "--i": index } },
     h("div", { class: "denom" }, chip),
-    h("div", { class: "counter" }, looseLabel, loose.controls),
+    // Loose coins are hidden in Safe mode: the safe only holds rolls.
+    h("div", { class: roll ? "counter loose-counter" : "counter" }, looseLabel, loose.controls),
     line,
   );
   const barSegment = h("i", { style: { background: item.color } });
@@ -220,10 +238,12 @@ function render(previous, instant) {
  */
 function commitCounts(next, { instant = false, quiet = false } = {}) {
   const previous = state.counts;
-  state.counts = sanitizeCounts(next, state.currency);
-  writeJSON(state.currency.storageKey, state.counts);
+  const clean = sanitizeCounts(next, state.currency);
+  state.counts = state.mode === "safe" ? rollsOnly(clean, state.currency) : clean;
+  writeSessionJSON(SESSION_KEYS[state.mode], state.counts);
   const { changed, total } = render(previous, instant);
   floatView?.update();
+  safeView?.update();
 
   if (quiet || instant) return;
   const fmt = state.currency.format;
@@ -253,10 +273,6 @@ function adjust(id, delta) {
     count: change,
     spinAxis: item.kind === "coin" ? "Y" : "X",
   });
-}
-
-function setCount(id, count) {
-  adjust(id, clampCount(count) - state.counts[id]);
 }
 
 // ---------------------------------------------------------------------------
@@ -299,10 +315,41 @@ function undo() {
 }
 
 // ---------------------------------------------------------------------------
-// Saved counts.
+// Till / Safe. Each keeps its own counts; switching saves one and loads the other.
 
+function showMode() {
+  const label = MODES[state.mode];
+  document.documentElement.dataset.mode = state.mode;
+  for (const button of ui.modeButtons) button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
+  ui.totalLabel.textContent = `${label} total`;
+  ui.miniLabel.textContent = `${label} total`;
+  ui.panel.setAttribute("aria-label", `${label} total`);
+  ui.floatSection.hidden = state.mode !== "till";
+  ui.safeSection.hidden = state.mode !== "safe";
+  ui.coinsTitle.textContent = state.mode === "safe" ? "Coin rolls" : "Coins";
+}
+
+function loadMode(mode) {
+  state.mode = mode;
+  showMode();
+  commitCounts(sanitizeCounts(readSessionJSON(SESSION_KEYS[mode]), state.currency), { instant: true });
+}
+
+function setMode(mode) {
+  if (!Object.hasOwn(MODES, mode) || mode === state.mode) return;
+  hideUndo(); // Undo belongs to the count that was cleared
+  writeSessionJSON(SESSION_KEYS.mode, mode);
+  loadMode(mode);
+  const total = state.currency.format(totals(state.counts, state.currency).total);
+  announce(`Counting the ${mode}. ${MODES[mode]} total ${total}`);
+}
+
+/** The count on screen when the page opens: the last one used in this tab, else the till. */
 function loadSavedCounts() {
-  commitCounts(migrateLegacyCounts(readJSON(state.currency.storageKey)), { instant: true });
+  // Counts used to be kept after closing; don't leave old cash figures lying on the device.
+  removeString(LEGACY_COUNTS_KEY);
+  const saved = readSessionJSON(SESSION_KEYS.mode);
+  loadMode(Object.hasOwn(MODES, saved) ? saved : "till");
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +364,7 @@ function wireEvents() {
   ui.clearButton.addEventListener("click", () => clearAll(ui.clearButton));
   ui.miniClearButton.addEventListener("click", () => clearAll(ui.miniClearButton));
   ui.undoButton.addEventListener("click", undo);
+  for (const button of ui.modeButtons) button.addEventListener("click", () => setMode(button.dataset.mode));
   for (const type of ["mouseenter", "focusin"]) ui.toast.addEventListener(type, () => clearTimeout(undoTimer));
   for (const type of ["mouseleave", "focusout"]) {
     ui.toast.addEventListener(type, () => {
@@ -359,18 +407,6 @@ function wireEvents() {
       adjust(id, event.key === "ArrowUp" ? step : -step);
     });
   }
-
-  // Keep other open tabs in sync with this one.
-  window.addEventListener("storage", (event) => {
-    if (event.key !== state.currency.storageKey) return;
-    let next = null;
-    try {
-      next = JSON.parse(event.newValue);
-    } catch {
-      // Treat unreadable data as empty.
-    }
-    commitCounts(next ?? {}, { quiet: true });
-  });
 
   // Show the slim total bar once the big total has scrolled up out of view.
   new IntersectionObserver(([entry]) => {
@@ -419,7 +455,6 @@ function start() {
   loadSavedCounts();
   wireEvents();
   initMotionSwitch(byId("motionBtn"));
-  initTilt(ui.panel);
   floatView = initFloat(
     {
       currency: state.currency,
@@ -434,18 +469,36 @@ function start() {
       bankSub: byId("bankSub"),
     },
   );
-  initVoice(
+  safeView = initSafe(
+    {
+      currency: state.currency,
+      get counts() { return state.counts; },
+      announce,
+    },
+    {
+      expected: byId("safeExpected"),
+      counted: byId("safeCounted"),
+      result: byId("safeResult"),
+      resultLabel: byId("safeResultLabel"),
+      resultAmount: byId("safeResultAmount"),
+      sub: byId("safeSub"),
+    },
+  );
+  initPrint(
+    {
+      currency: state.currency,
+      get mode() { return state.mode; },
+      get counts() { return state.counts; },
+      safeExpected: () => safeView.expected(),
+    },
+    { button: byId("printBtn"), report: byId("printReport") },
+  );
+  initReadAloud(
     {
       get currency() { return state.currency; },
       get counts() { return state.counts; },
-      adjust,
-      setCount,
-      clearAll: () => clearAll(ui.clearButton),
-      undo,
-      canUndo: () => state.undoCounts !== null,
-      floatSummary: () => floatView.summary(),
     },
-    { mic: byId("micBtn"), read: byId("readBtn"), status: byId("voiceStatus") },
+    { read: byId("readBtn"), label: byId("readLabel"), status: byId("readStatus") },
   );
   registerServiceWorker();
 }
