@@ -1165,7 +1165,7 @@ input.money:focus-visible {
 }
 
 
-/* 9. Undo toast (shown after "Clear all")
+/* 9. Toasts: Undo (after "Clear all") and new version ready
    -------------------------------------------------------------------------- */
 
 .toast {
@@ -1215,6 +1215,29 @@ input.money:focus-visible {
 .toast-btn:focus-visible {
   outline: 2px solid var(--highlight);
   outline-offset: 2px;
+}
+
+/* "A new version is ready": sits above the Undo toast if both are showing */
+.update-toast {
+  gap: 8px;
+}
+
+.update-toast span {
+  margin-right: 8px;
+}
+
+.toast:not([hidden]) ~ .update-toast {
+  bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+.later-btn {
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.later-btn:active {
+  transform: none;
 }
 
 

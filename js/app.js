@@ -23,6 +23,8 @@ import { LEGACY_COUNTS_KEY, readSessionJSON, removeString, SESSION_KEYS, writeSe
 import { initReadAloud } from "./read-aloud.js";
 
 const UNDO_TIMEOUT_MS = 10_000;
+/** How often an open app checks whether a new version has been published. */
+const UPDATE_CHECK_MS = 60 * 60 * 1000;
 const ANNOUNCE_DELAY_MS = 600;
 const TOTAL_ANIMATION_MS = 450;
 const MAX_DIGITS = String(MAX_COUNT).length;
@@ -44,6 +46,9 @@ const ui = {
   miniClearButton: byId("miniClearBtn"),
   toast: byId("toast"),
   undoButton: byId("undoBtn"),
+  updateToast: byId("updateToast"),
+  refreshButton: byId("refreshBtn"),
+  laterButton: byId("laterBtn"),
   notesList: byId("notes"),
   coinsList: byId("coins"),
   subtotals: {
@@ -428,9 +433,32 @@ function registerServiceWorker() {
   });
   const url = policy ? policy.createScriptURL("./sw.js") : "./sw.js";
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register(url).catch(() => {
+    navigator.serviceWorker.register(url).then((registration) => {
+      // Look for a new version whenever the app comes back into view, and hourly while open.
+      const check = () => registration.update().catch(() => {
+        // Offline: try again next time.
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) check();
+      });
+      setInterval(check, UPDATE_CHECK_MS);
+    }).catch(() => {
       // Offline support is optional; the app works without it.
     });
+  });
+
+  // A new version takes over as soon as it's installed (see sw.js), but this page is still
+  // running the old one until it reloads. On a first visit there's nothing older to replace.
+  const hadVersion = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadVersion || !ui.updateToast.hidden) return;
+    ui.updateToast.hidden = false;
+    announce("A new version of Cash Counter is ready. Press Refresh to use it. Your count is kept.");
+  });
+  // Counts are in sessionStorage, so a reload keeps them.
+  ui.refreshButton.addEventListener("click", () => window.location.reload());
+  ui.laterButton.addEventListener("click", () => {
+    ui.updateToast.hidden = true;
   });
 }
 

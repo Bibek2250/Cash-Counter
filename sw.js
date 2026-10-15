@@ -4,7 +4,7 @@
  * Only this site's own files are ever cached or served from the cache; requests to anywhere
  * else pass straight through untouched. Bump CACHE whenever files change so devices update.
  */
-const CACHE = "cash-counter-v25";
+const CACHE = "cash-counter-v26";
 
 const APP_FILES = [
   "./",
